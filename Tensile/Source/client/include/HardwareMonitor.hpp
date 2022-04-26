@@ -34,7 +34,33 @@
 #include <vector>
 
 #include <hip/hip_runtime.h>
-#include <rocm_smi/rocm_smi.h>
+//#include <rocm_smi/rocm_smi.h>
+
+typedef enum {
+  RSMI_CLK_TYPE_SYS = 0x0,            //!< System clock
+  RSMI_CLK_TYPE_FIRST = RSMI_CLK_TYPE_SYS,
+  RSMI_CLK_TYPE_DF,                   //!< Data Fabric clock (for ASICs
+                                      //!< running on a separate clock)
+  RSMI_CLK_TYPE_DCEF,                 //!< Display Controller Engine clock
+  RSMI_CLK_TYPE_SOC,                  //!< SOC clock
+  RSMI_CLK_TYPE_MEM,                  //!< Memory clock
+
+  // Add new clocks to the end (not in the middle) and update
+  // RSMI_CLK_TYPE_LAST
+  RSMI_CLK_TYPE_LAST = RSMI_CLK_TYPE_MEM,
+  RSMI_CLK_INVALID = 0xFFFFFFFF
+} rsmi_clk_type_t;
+
+#define RSMI_STATUS_SUCCESS (1)
+typedef int rsmi_status_t;
+typedef int rsmi_frequencies_t;
+#define rsmi_init(...) (RSMI_STATUS_SUCCESS)
+#define rsmi_num_monitor_devices(...)
+#define rsmi_dev_pci_id_get(...)
+#define rsmi_dev_temp_metric_get(...) (RSMI_STATUS_SUCCESS)
+#define rsmi_status_string(...)
+#define rsmi_dev_gpu_clk_freq_get(...) (RSMI_STATUS_SUCCESS);
+#define rsmi_dev_fan_rpms_get(...) (RSMI_STATUS_SUCCESS)
 
 namespace Tensile
 {
@@ -56,6 +82,9 @@ namespace Tensile
             static uint32_t GetROCmSMIIndex(int hipDeviceIndex);
 
             using rsmi_temperature_type_t = int;
+            using rsmi_temperature_metric_t = int;
+            using rsmi_clk_type_t = int;
+            #define RSMI_TEMP_CURRENT (0)
             using clock                   = std::chrono::steady_clock;
 
             // Monitor at the maximum possible rate.

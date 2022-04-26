@@ -32,6 +32,10 @@
 
 #include <Tensile/DistinctType.hpp>
 
+#ifndef _Float16
+#define _Float16 uint16_t
+#endif
+
 namespace Tensile
 {
 #if defined(TENSILE_USE_HIP) || defined(TENSILE_USE_FLOAT16_BUILTIN)
@@ -52,8 +56,8 @@ namespace Tensile
 
 namespace std
 {
-    inline ostream& operator<<(ostream& stream, const Tensile::Half val)
-    {
-        return stream << static_cast<float>(val);
-    }
+    //inline ostream& operator<<(ostream& stream, const Tensile::Half val)
+    //{
+    //    return stream << static_cast<float>(val);
+    //}
 } // namespace std

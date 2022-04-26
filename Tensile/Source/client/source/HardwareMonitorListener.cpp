@@ -26,7 +26,7 @@
 
 #include "HardwareMonitor.hpp"
 
-#include <unistd.h>
+//#include <unistd.h>
 
 #include <hip/hip_runtime.h>
 

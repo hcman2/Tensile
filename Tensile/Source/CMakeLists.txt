@@ -24,6 +24,13 @@ cmake_minimum_required(VERSION 3.13)
 # Override all paths arguments as they do not work properly
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROCM_PATH} /opt/rocm)
 
+set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
+
+set(CMAKE_CXX_COMPILER "C:/hip/bin/clang++.exe")
+set(CMAKE_CXX_LINKER   "C:/hip/bin/clang++.exe")
+set(CMAKE_C_COMPILER "C:/hip/bin/clang.exe")
+set(CMAKE_C_LINKER   "C:/hip/bin/clang.exe")
+
 project(Tensile)
 
 set(TENSILE_USE_HIP      ON CACHE BOOL "Use the Hip runtime.")

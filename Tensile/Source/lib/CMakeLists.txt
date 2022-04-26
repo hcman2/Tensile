@@ -47,6 +47,7 @@ set(tensile_sources  ${tensile_sources}
     )
 
 if(TENSILE_USE_LLVM)
+	set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "C:/Users/amd/llvm/llvm/cmake/modules")
     find_package(LLVM 13.0 QUIET CONFIG)
     if(NOT LLVM_FOUND)
         find_package(LLVM 12.0 QUIET CONFIG)
@@ -99,7 +100,8 @@ if(TENSILE_USE_LLVM OR TENSILE_USE_MSGPACK)
 endif()
 
 if(TENSILE_USE_MSGPACK)
-    find_package(msgpack REQUIRED)
+    find_package(msgpack)
+    message("msgpack_FOUND: " ${msgpack_FOUND})
     target_compile_definitions(TensileHost PUBLIC -DTENSILE_MSGPACK=1)
 
     if(TARGET msgpackc-cxx)
@@ -119,10 +121,13 @@ endif()
 
 if(TENSILE_USE_LLVM)
     target_compile_definitions(TensileHost PUBLIC -DTENSILE_YAML=1)
+	set(LLVM_INCLUDE_DIRS "C:/Users/amd/llvm/llvm/include" "C:/Users/amd/build/include")
+	set(LLVM_LIBRARY_DIR "C:/Users/amd/build/Release/lib")
     find_library(LLVMObjectYAML_LIBRARY
         NAMES LLVMObjectYAML
         PATHS ${LLVM_LIBRARY_DIR})
     message("LLVMObjectYAML_LIBRARY: ${LLVMObjectYAML_LIBRARY}")
+	message("LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
     #Use LLVM shared libs if LLVMObjectYAML static lib cannot be found
     if(LLVMObjectYAML_LIBRARY)
         target_link_libraries(TensileHost PRIVATE LLVMObjectYAML )

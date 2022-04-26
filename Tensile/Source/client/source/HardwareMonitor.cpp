@@ -29,7 +29,7 @@
 #include <chrono>
 #include <cstddef>
 #include <iomanip>
-#include <unistd.h>
+//#include <unistd.h>
 
 #include <hip/hip_runtime.h>
 
@@ -38,20 +38,20 @@
 #include "ResultReporter.hpp"
 
 #define RSMI_CHECK_EXC(expr)                                                                      \
-    do                                                                                            \
-    {                                                                                             \
-        rsmi_status_t e = (expr);                                                                 \
-        if(e)                                                                                     \
-        {                                                                                         \
-            const char* errName = nullptr;                                                        \
-            rsmi_status_string(e, &errName);                                                      \
-            std::ostringstream msg;                                                               \
-            msg << "Error " << e << "(" << errName << ") " << __FILE__ << ":" << __LINE__ << ": " \
-                << std::endl                                                                      \
-                << #expr << std::endl;                                                            \
-            throw std::runtime_error(msg.str());                                                  \
-        }                                                                                         \
-    } while(0)
+//    do                                                                                            \
+//    {                                                                                             \
+//        rsmi_status_t e = (expr);                                                                 \
+//        if(e)                                                                                     \
+//        {                                                                                         \
+//            const char* errName = nullptr;                                                        \
+//            rsmi_status_string(e, &errName);                                                      \
+//            std::ostringstream msg;                                                               \
+//            msg << "Error " << e << "(" << errName << ") " << __FILE__ << ":" << __LINE__ << ": " \
+//                << std::endl                                                                      \
+//                << #expr << std::endl;                                                            \
+//            throw std::runtime_error(msg.str());                                                  \
+//        }                                                                                         \
+//    } while(0)
 
 namespace Tensile
 {
@@ -341,7 +341,7 @@ namespace Tensile
                 }
                 else
                 {
-                    m_clockValues[i] += freq.frequency[freq.current];
+                    m_clockValues[i] += 0;//freq.frequency[freq.current];
                 }
             }
 

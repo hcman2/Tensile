@@ -18,8 +18,11 @@ set(client_sources
     source/TimingEvents.cpp
     )
 
-find_package(Boost  COMPONENTS program_options filesystem REQUIRED)
-
+SET(Boost_USE_STATIC_LIBS ON)
+#find_package(Boost COMPONENTS program_options REQUIRED)
+find_package(Boost)
+message("Boost_FOUND: " ${Boost_FOUND})
+set(Boost_LIBRARIES "C:/local/boost_1_76_0/lib64-msvc-14.2/libboost_program_options-vc142-mt-x64-1_76.lib")
 add_library(TensileClient STATIC ${client_sources})
 
 set_target_properties(TensileClient
@@ -30,11 +33,16 @@ set_target_properties(TensileClient
 
 find_package(ROCmSMI QUIET)
 if(NOT ROCmSMI_FOUND)
-    set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${Tensile_DIR}" "${Tensile_DIR}/../Source/cmake" "${CMAKE_HOME_DIRECTORY}/cmake")
-    find_package(ROCmSMI REQUIRED)
+    #set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${Tensile_DIR}" "${Tensile_DIR}/../Source/cmake" "${CMAKE_HOME_DIRECTORY}/cmake")
+    #find_package(ROCmSMI REQUIRED)
+	message("Skip ROCmSMI module")
 endif()
 
 target_include_directories(TensileClient PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")# "${rocm_smi_root}/include")
+
+message("Boost_LIBRARIES: " ${Boost_LIBRARIES})
+message("Boost_LIBRARIES: " ${Boost_PROGRAM_OPTIONS_LIBRARY})
+include_directories(${Boost_INCLUDE_DIR})
 
 target_link_libraries(TensileClient PRIVATE TensileHost ${Boost_LIBRARIES} rocm_smi)
 if(TENSILE_USE_OPENMP)
