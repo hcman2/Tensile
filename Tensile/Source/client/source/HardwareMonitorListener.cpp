@@ -39,7 +39,7 @@ namespace Tensile
 {
     namespace Client
     {
-        HardwareMonitorListener::HardwareMonitorListener(po::variables_map const& args)
+        HardwareMonitorListener::HardwareMonitorListener(po::variables_map& args)
             : m_useGPUTimer(args["use-gpu-timer"].as<bool>())
             , m_active(args["hardware-monitor"].as<bool>())
         {

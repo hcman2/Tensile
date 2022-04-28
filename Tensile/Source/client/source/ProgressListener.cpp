@@ -88,6 +88,8 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
     tz->tz_minuteswest = _timezone / 60;
     tz->tz_dsttime = _daylight;
   }
+  
+  return 0;
 }  
 #endif
 
@@ -100,7 +102,7 @@ namespace Tensile
 {
     namespace Client
     {
-        ProgressListener::ProgressListener(po::variables_map const& args)
+        ProgressListener::ProgressListener(po::variables_map& args)
             : m_runOnce(args["selection-only"].as<bool>())
         {
         }

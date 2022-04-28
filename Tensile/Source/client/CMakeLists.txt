@@ -19,10 +19,6 @@ set(client_sources
     )
 
 SET(Boost_USE_STATIC_LIBS ON)
-#find_package(Boost COMPONENTS program_options REQUIRED)
-find_package(Boost)
-message("Boost_FOUND: " ${Boost_FOUND})
-set(Boost_LIBRARIES "C:/local/boost_1_76_0/lib64-msvc-14.2/libboost_program_options-vc142-mt-x64-1_76.lib")
 add_library(TensileClient STATIC ${client_sources})
 
 set_target_properties(TensileClient
@@ -40,11 +36,8 @@ endif()
 
 target_include_directories(TensileClient PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")# "${rocm_smi_root}/include")
 
-message("Boost_LIBRARIES: " ${Boost_LIBRARIES})
-message("Boost_LIBRARIES: " ${Boost_PROGRAM_OPTIONS_LIBRARY})
-include_directories(${Boost_INCLUDE_DIR})
+target_link_libraries(TensileClient PRIVATE TensileHost)
 
-target_link_libraries(TensileClient PRIVATE TensileHost ${Boost_LIBRARIES} rocm_smi)
 if(TENSILE_USE_OPENMP)
     target_link_libraries(TensileClient PRIVATE custom_openmp_cxx)
 endif()
@@ -56,11 +49,8 @@ set_target_properties(tensile_client
                       CXX_STANDARD_REQUIRED ON
                       CXX_EXTENSIONS OFF)
 
-target_link_libraries(tensile_client PRIVATE TensileHost TensileClient ${Boost_LIBRARIES})
+target_link_libraries(tensile_client PRIVATE TensileHost TensileClient)
 if(TENSILE_USE_OPENMP)
     target_link_libraries(tensile_client PRIVATE custom_openmp_cxx)
 endif()
 
-foreach(arch IN LISTS TENSILE_GPU_ARCHS)
-    target_link_libraries(tensile_client PRIVATE "--amdgpu-target=${arch}")
-endforeach(arch)
