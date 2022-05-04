@@ -54,6 +54,9 @@
 
 #include <cstddef>
 
+#define DEBUG 1
+#define DEBUG_LOG(__VA_ARGS__) if (DEBUG) printf(__VA_ARGS__)
+
 namespace pomain = roc;
 
 namespace Tensile
@@ -64,7 +67,7 @@ namespace Tensile
         template <typename T>
         pomain::value<T>* value_default(std::string const& desc)
         {
-            return pomain::value<T>()->default_value(T(), desc);
+            return pomain::value<T>()->default_value(T());
         }
 
         template <typename T>
@@ -87,11 +90,11 @@ namespace Tensile
             options.add_options()
                 ("help,h", "Show help message.")
 
-                ("config-file",              vector_default_empty<std::string>(), "INI config file(s) to read.")
+                ("config-file",              pomain::value<std::vector<std::string>>(), "INI config file(s) to read.")
 
                 ("library-file,l",           pomain::value<std::string>(), "Load a (YAML) solution library.  If not specified, we will use "
                                                                        "the embedded library, if available.")
-                ("code-object,c",            vector_default_empty<std::string>(), "Code object file with kernel(s).  If none are "
+                ("code-object,c",            pomain::value<std::vector<std::string>>(), "Code object file with kernel(s).  If none are "
                                                                                   "specified, we will use the embedded code "
                                                                                   "object(s) if available.")
 
@@ -99,10 +102,10 @@ namespace Tensile
 
                 ("problem-identifier",       pomain::value<std::string>(), "Problem identifer (Einstein notation). Either "
                                                                        "this or free/batch/bound must be specified.")
-                ("free",                     value_default<ContractionProblem::FreeIndices>("[]"),  "Free index. Order: a,b,ca,cb,da,db")
-                ("batch",                    value_default<ContractionProblem::BatchIndices>("[]"), "Batch index. Order: a,b,c,d")
-                ("bound",                    value_default<ContractionProblem::BoundIndices>("[]"), "Bound/summation index. Order: a,b")
-
+                ("free",                     pomain::value<ContractionProblem::FreeIndices>()->default_value(ContractionProblem::FreeIndices(0)),  "Free index. Order: a,b,ca,cb,da,db")
+                ("batch",                    pomain::value<ContractionProblem::BatchIndices>()->default_value(ContractionProblem::BatchIndices(0)), "Batch index. Order: a,b,c,d")
+                ("bound",                    pomain::value<ContractionProblem::BoundIndices>()->default_value(ContractionProblem::BoundIndices(0)), "Bound/summation index. Order: a,b")
+                
                 ("type",                     pomain::value<DataType>()->default_value(DataType::None), "Data type")
                 ("a-type",                   pomain::value<DataType>()->default_value(DataType::None), "A data type")
                 ("b-type",                   pomain::value<DataType>()->default_value(DataType::None), "B data type")
@@ -171,45 +174,45 @@ namespace Tensile
                 ("csv-export-extra-cols",    pomain::value<bool>()->default_value(false), "CSV exports winner information")
                 ("csv-merge-same-problems",  pomain::value<bool>()->default_value(false), "CSV merge rows of same problem id")
 
-                ("problem-size,p",           vector_default_empty<std::string>(), "Specify a problem size.  Comma-separated list of "
+                ("problem-size,p",           pomain::value<std::vector<std::vector<size_t>>>()->default_value(std::vector<std::vector<size_t>>(0)), "Specify a problem size.  Comma-separated list of "
                                                                                   "sizes, in the order of the Einstein notation.")
 
-                ("a-strides",                vector_default_empty<std::string>(), "Unspecified means default stride "
+                ("a-strides",                pomain::value<std::vector<std::vector<size_t>>>()->default_value(std::vector<std::vector<size_t>>(0)), "Unspecified means default stride "
                                                                                   "(prev_dim_stride*prev_dim_size)"
                                                                                   "specifying once applies to all problem sizes, "
                                                                                   "otherwise specify once per problem size.")
 
-                ("b-strides",                vector_default_empty<std::string>(), "Unspecified means default stride "
+                ("b-strides",                pomain::value<std::vector<std::vector<size_t>>>()->default_value(std::vector<std::vector<size_t>>(0)), "Unspecified means default stride "
                                                                                   "(prev_dim_stride*prev_dim_size)"
                                                                                   "specifying once applies to all problem sizes, "
                                                                                   "otherwise specify once per problem size.")
 
-                ("c-strides",                vector_default_empty<std::string>(), "Unspecified means default stride "
+                ("c-strides",                pomain::value<std::vector<std::vector<size_t>>>()->default_value(std::vector<std::vector<size_t>>(0)), "Unspecified means default stride "
                                                                                   "(prev_dim_stride*prev_dim_size)"
                                                                                   "specifying once applies to all problem sizes, "
                                                                                   "otherwise specify once per problem size.")
 
-                ("d-strides",                vector_default_empty<std::string>(), "Unspecified means default stride "
+                ("d-strides",                pomain::value<std::vector<std::vector<size_t>>>()->default_value(std::vector<std::vector<size_t>>(0)), "Unspecified means default stride "
                                                                                   "(prev_dim_stride*prev_dim_size)"
                                                                                   "specifying once applies to all problem sizes, "
                                                                                   "otherwise specify once per problem size.")
 
-                ("convolution-problem",      vector_default_empty<std::string>(), "Specify a Convolution problem size. Comma-separated list of sizes:"
+                ("convolution-problem",      pomain::value<std::vector<std::vector<size_t>>>()->default_value(std::vector<std::vector<size_t>>(0)), "Specify a Convolution problem size. Comma-separated list of sizes:"
                                                                                   "Spatial(w,h,d),Filter(x,y,z),Stride(v,u,#),"
                                                                                   "Dilation(j,l,^),Pad start(q,p,$),Pad end(q_,p_,$_)")
 
-                ("a-zero-pads",                vector_default_empty<std::string>(), "Comma-separated tuple(s) of anchor dim,"
+                ("a-zero-pads",                pomain::value<std::vector<std::vector<size_t>>>()->default_value(std::vector<std::vector<size_t>>(0)), "Comma-separated tuple(s) of anchor dim,"
                                                                                   "summation dim, leading pad, trailing pad."
                                                                                   "Each tuple must be separated with a semi-colon.")
 
-                ("b-zero-pads",                vector_default_empty<std::string>(), "Comma-separated tuple(s) of anchor dim,"
+                ("b-zero-pads",                pomain::value<std::vector<std::vector<size_t>>>()->default_value(std::vector<std::vector<size_t>>(0)), "Comma-separated tuple(s) of anchor dim,"
                                                                                   "summation dim, leading pad, trailing pad."
                                                                                   "Each tuple must be separated with a semi-colon.")
 
-                ("a-ops",                    vector_default_empty<TensorOp>(), "Operations applied to A.")
-                ("b-ops",                    vector_default_empty<TensorOp>(), "Operations applied to B.")
-                ("c-ops",                    vector_default_empty<TensorOp>(), "Operations applied to C.")
-                ("d-ops",                    vector_default_empty<TensorOp>(), "Operations applied to D.")
+                ("a-ops",                    pomain::value<std::vector<TensorOp>>()->default_value(std::vector<TensorOp>(0)), "Operations applied to A.")
+                ("b-ops",                    pomain::value<std::vector<TensorOp>>()->default_value(std::vector<TensorOp>(0)), "Operations applied to B.")
+                ("c-ops",                    pomain::value<std::vector<TensorOp>>()->default_value(std::vector<TensorOp>(0)), "Operations applied to C.")
+                ("d-ops",                    pomain::value<std::vector<TensorOp>>()->default_value(std::vector<TensorOp>(0)), "Operations applied to D.")
 
                 ("problem-start-idx",        pomain::value<int>()->default_value(0),  "First problem to run")
                 ("num-problems",             pomain::value<int>()->default_value(-1), "Number of problems to run")
@@ -292,7 +295,6 @@ namespace Tensile
         {
             auto const& filenames = args["code-object"].as<std::vector<std::string>>();
             auto        logLevel  = args["log-level"].as<LogLevel>();
-
             if(filenames.empty())
             {
                 adapter.loadEmbeddedCodeObjects();
@@ -310,7 +312,7 @@ namespace Tensile
                     if(logLevel >= LogLevel::Verbose)
                         std::cout << "Loading " << filename << std::endl;
                     ret = adapter.loadCodeObjectFile(filename);
-
+                
                     if(ret == hipSuccess)
                         loaded = true;
                     else
@@ -337,17 +339,19 @@ namespace Tensile
             return rv;
         }
 
-        void parse_arg_ints(pomain::variables_map& args, std::string const& name)
-        {
-            auto inValue = args[name].as<std::vector<std::string>>();
-
-            std::vector<std::vector<size_t>> outValue;
-            outValue.reserve(inValue.size());
-            for(auto const& str : inValue)
-                outValue.push_back(split_ints(str));
-
-            args.at(name).set(outValue);
-        }
+        //void parse_arg_ints(pomain::variables_map& args, std::string const& name)
+        //{
+        //    auto inValue = args[name].as<std::vector<std::string>>();
+        //
+        //    std::vector<std::vector<size_t>> outValue;
+        //    outValue.reserve(inValue.size());
+        //    std::cout<<"size="<<inValue.size()<<std::endl;
+        //    
+        //    for(auto const& str : inValue)
+        //        outValue.push_back(split_ints(str));
+        //    
+        //    args.at(name).set(outValue);
+        //}
 
         void fix_data_types(pomain::variables_map& args)
         {
@@ -369,12 +373,13 @@ namespace Tensile
 
         pomain::variables_map parse_args(int argc, const char* argv[])
         {
+            DEBUG_LOG("parse_args start\n");
             auto options = all_options();
-
+            DEBUG_LOG("parse_command_line start\n");
             pomain::variables_map args;
             pomain::store(pomain::parse_command_line(argc, argv, options), args);
             pomain::notify(args);
-
+            DEBUG_LOG("parse_command_line done\n");
             if(args.count("help"))
             {
                 std::cout << options << std::endl;
@@ -383,6 +388,7 @@ namespace Tensile
 
             if(args.count("config-file"))
             {
+                DEBUG_LOG("parse_config_file start\n");
                 auto configFiles = args["config-file"].as<std::vector<std::string>>();
                 for(auto filename : configFiles)
                 {
@@ -392,20 +398,23 @@ namespace Tensile
                         throw std::runtime_error(concatenate("Could not open ", filename));
                     pomain::store(pomain::parse_config_file(file, options), args);
                 }
+                DEBUG_LOG("parse_config_file done\n");
             }
 
             fix_data_types(args);
+            DEBUG_LOG("fix_data_types done\n");
+            //parse_arg_ints(args, "problem-size");
+            //parse_arg_ints(args, "a-strides");
+            //parse_arg_ints(args, "b-strides");
+            //parse_arg_ints(args, "c-strides");
+            //parse_arg_ints(args, "d-strides");
+            //parse_arg_ints(args, "a-zero-pads");
+            //parse_arg_ints(args, "b-zero-pads");
+            DEBUG_LOG("parse_arg_ints done\n");
 
-            parse_arg_ints(args, "problem-size");
-            parse_arg_ints(args, "a-strides");
-            parse_arg_ints(args, "b-strides");
-            parse_arg_ints(args, "c-strides");
-            parse_arg_ints(args, "d-strides");
-            parse_arg_ints(args, "a-zero-pads");
-            parse_arg_ints(args, "b-zero-pads");
+            //if(args["convolution-vs-contraction"].as<bool>())
+            //    parse_arg_ints(args, "convolution-problem");
 
-            if(args["convolution-vs-contraction"].as<bool>())
-                parse_arg_ints(args, "convolution-problem");
             return args;
         }
 
@@ -466,18 +475,19 @@ int main(int argc, const char* argv[])
 {
     using namespace Tensile;
     using namespace Tensile::Client;
-
+    DEBUG_LOG("start\n");
     auto args = parse_args(argc, argv);
-
+    DEBUG_LOG("parse_args done\n");
     ClientProblemFactory problemFactory(args);
-
+    
     auto        hardware = GetHardware(args);
     hipStream_t stream   = GetStream(args);
-
+    DEBUG_LOG("GetHardware/GetStream done\n");
     auto                          library = LoadSolutionLibrary(args);
+    DEBUG_LOG("LoadSolutionLibrary done\n");
     Tensile::hip::SolutionAdapter adapter;
     LoadCodeObjects(args, adapter);
-
+    DEBUG_LOG("LoadCodeObjects done\n");
     auto problems        = problemFactory.problems();
     int  firstProblemIdx = args["problem-start-idx"].as<int>();
     int  numProblems     = args["num-problems"].as<int>();
@@ -506,14 +516,15 @@ int main(int argc, const char* argv[])
     maxWorkspaceSize = std::min(maxWorkspaceSize, maxWorkspaceSizeLimit);
 
     auto dataInit = DataInitialization::Get(args, problemFactory, maxWorkspaceSize);
-
+    DEBUG_LOG("DataInitialization::Get done\n");
     auto solutionIterator = SolutionIterator::Default(library, hardware, args);
-
+    DEBUG_LOG("SolutionIterator::Default done\n");
     MetaRunListener listeners;
 
     listeners.addListener(dataInit);
     listeners.addListener(solutionIterator);
     listeners.addListener(std::make_shared<ProgressListener>(args));
+    DEBUG_LOG("addListener done\n");
     if(runKernels)
     {
         listeners.addListener(std::make_shared<ReferenceValidator>(args, dataInit));
@@ -529,7 +540,7 @@ int main(int argc, const char* argv[])
     reporters->addReporter(LogReporter::Default(args));
     reporters->addReporter(ResultFileReporter::Default(args));
     reporters->addReporter(LibraryUpdateReporter::Default(args));
-
+    DEBUG_LOG("addReporter done\n");
     if(args.count("log-file"))
     {
         std::string filename = args["log-file"].as<std::string>();
@@ -540,7 +551,7 @@ int main(int argc, const char* argv[])
     }
 
     listeners.setReporter(reporters);
-
+    DEBUG_LOG("setReporter done");
     // ReferenceValidator validator(args, dataInit);
     // BenchmarkTimer timer(args);
 
@@ -656,7 +667,7 @@ int main(int argc, const char* argv[])
     }
 
     listeners.finalizeReport();
-
+    DEBUG_LOG("finalizeReport done");
     // error range in shell is [0-255]
     return std::min(listeners.error(), 255);
 }

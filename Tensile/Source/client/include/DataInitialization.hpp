@@ -26,8 +26,6 @@
 
 #pragma once
 
-#include "program_options.hpp"
-
 #include <Tensile/ContractionProblem.hpp>
 
 #include "ClientProblemFactory.hpp"
@@ -105,23 +103,23 @@ namespace Tensile
         class DataInitialization : public RunListener
         {
         public:
-            static double GetRepresentativeBetaValue(po::variables_map& args);
+            static double GetRepresentativeBetaValue(roc::variables_map& args);
 
             /**
    * Factory function.
    */
             static std::shared_ptr<DataInitialization>
-                Get(po::variables_map&    args,
+                Get(roc::variables_map&    args,
                     ClientProblemFactory const& problemFactory,
                     size_t                      maxWorkspaceSize = 0);
 
             template <typename TypedInputs>
             static std::shared_ptr<TypedDataInitialization<TypedInputs>>
-                GetTyped(po::variables_map&    args,
+                GetTyped(roc::variables_map&    args,
                          ClientProblemFactory const& problemFactory,
                          size_t                      maxWorkspaceSize = 0);
 
-            DataInitialization(po::variables_map&    args,
+            DataInitialization(roc::variables_map&    args,
                                ClientProblemFactory const& problemFactory,
                                size_t                      maxWorkspaceSize = 0);
             ~DataInitialization();
