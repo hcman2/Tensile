@@ -27,76 +27,10 @@
 #include <ProgressListener.hpp>
 
 #include <cstddef>
+#include <iostream>
 #include <iomanip>
-
-#ifdef __linux__ 
-    #include <sys/time.h>
-#elif _WIN32
-    #include <time.h> 
-    
-    #if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
-    #define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
-    #else
-    #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
-    #endif
-struct timezone 
-{
-  int  tz_minuteswest; /* minutes W of Greenwich */
-  int  tz_dsttime;     /* type of dst correction */
-};
-
-typedef unsigned long DWORD, *PDWORD, *LPDWORD;
-
-typedef struct timeval {
-  long tv_sec;
-  long tv_usec;
-} TIMEVAL, *PTIMEVAL, *LPTIMEVAL;
-
-typedef struct _FILETIME {
-  DWORD dwLowDateTime;
-  DWORD dwHighDateTime;
-} FILETIME, *PFILETIME, *LPFILETIME;
-
-int gettimeofday(struct timeval *tv, struct timezone *tz)
-{
-  FILETIME ft;
-  unsigned __int64 tmpres = 0;
-  static int tzflag;
-
-  if (NULL != tv)
-  {
-    //GetSystemTimeAsFileTime(&ft);
-
-    tmpres |= ft.dwHighDateTime;
-    tmpres <<= 32;
-    tmpres |= ft.dwLowDateTime;
-
-    /*converting file time to unix epoch*/
-    tmpres -= DELTA_EPOCH_IN_MICROSECS; 
-    tmpres /= 10;  /*convert into microseconds*/
-    tv->tv_sec = (long)(tmpres / 1000000UL);
-    tv->tv_usec = (long)(tmpres % 1000000UL);
-  }
-
-  if (NULL != tz)
-  {
-    if (!tzflag)
-    {
-      _tzset();
-      tzflag++;
-    }
-    tz->tz_minuteswest = _timezone / 60;
-    tz->tz_dsttime = _daylight;
-  }
-  
-  return 0;
-}  
-#endif
-
-
-
-
-
+#include <sstream>
+#include <ctime>
 
 namespace Tensile
 {
@@ -209,18 +143,15 @@ namespace Tensile
                                                 TimingEvents const&                startEvents,
                                                 TimingEvents const&                stopEvents)
         {
-            struct timeval tmnow;
-            struct tm*     tm;
-            gettimeofday(&tmnow, NULL); // microsecond resolution
-            //tm = localtime(&tmnow.tv_sec);
-            std::cout.fill('0');
+            std::time_t result = std::time(nullptr);
+            std::tm* tm = std::localtime(&result);
 
             std::ostringstream msg;
             msg.fill('0');
             msg << (tm->tm_year + 1900) << "-" << std::setw(2) << (tm->tm_mon + 1) << "-"
                 << std::setw(2) << tm->tm_mday << " " << std::setw(2) << tm->tm_hour << ":"
                 << std::setw(2) << tm->tm_min << ":" << std::setw(2) << tm->tm_sec << "."
-                << std::setw(6) << static_cast<int>(tmnow.tv_usec);
+                << std::setw(6);
 
             m_reporter->report(ResultKey::EnqueueTime, msg.str());
         }

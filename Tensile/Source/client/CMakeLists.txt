@@ -4,7 +4,6 @@ set(client_sources
     source/ClientProblemFactory.cpp
     source/ConvolutionProblem.cpp
     source/DataInitialization.cpp
-    source/HardwareMonitor.cpp
     source/HardwareMonitorListener.cpp
     source/LibraryUpdateReporter.cpp
     source/MetaRunListener.cpp
@@ -19,6 +18,13 @@ set(client_sources
     )
 
 SET(Boost_USE_STATIC_LIBS ON)
+
+if(NOT WIN32)
+    set(client_sources ${client_sources}
+        source/HardwareMonitor.cpp
+    )
+endif()
+
 add_library(TensileClient STATIC ${client_sources})
 
 set_target_properties(TensileClient
@@ -27,16 +33,20 @@ set_target_properties(TensileClient
                       CXX_STANDARD_REQUIRED ON
                       CXX_EXTENSIONS OFF)
 
-find_package(ROCmSMI QUIET)
-if(NOT ROCmSMI_FOUND)
-    #set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${Tensile_DIR}" "${Tensile_DIR}/../Source/cmake" "${CMAKE_HOME_DIRECTORY}/cmake")
-    #find_package(ROCmSMI REQUIRED)
-	message("Skip ROCmSMI module")
+if (NOT WIN32)
+    find_package(ROCmSMI QUIET)
+    if(NOT ROCmSMI_FOUND)
+        set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${Tensile_DIR}" "${Tensile_DIR}/../Source/cmake" "${CMAKE_HOME_DIRECTORY}/cmake")
+        find_package(ROCmSMI REQUIRED)
+    endif()
 endif()
 
 target_include_directories(TensileClient PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")# "${rocm_smi_root}/include")
 
 target_link_libraries(TensileClient PRIVATE TensileHost)
+if(NOT WIN32)
+    target_link_libraries(TensileClient PRIVATE TensileHost rocm_smi)
+endif()
 
 if(TENSILE_USE_OPENMP)
     target_link_libraries(TensileClient PRIVATE custom_openmp_cxx)
