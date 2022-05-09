@@ -807,7 +807,7 @@ namespace Tensile
 
         return name;
     }
-	
+
     template <typename TypedInputs>
     std::vector<KernelInvocation> ContractionSolution::solveTyped(Problem const&     problem,
                                                                   TypedInputs const& inputs,

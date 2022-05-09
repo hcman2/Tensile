@@ -138,13 +138,27 @@ def findAvailableArchs():
         rocmpath = os.environ.get("ROCM_PATH")
     if "TENSILE_ROCM_PATH" in os.environ:
         rocmpath = os.environ.get("TENSILE_ROCM_PATH")
-    rocmAgentEnum = os.path.join(rocmpath, "bin/rocm_agent_enumerator")
-    output = subprocess.check_output([rocmAgentEnum, "-t", "GPU"])
-    lines = output.decode().splitlines()
-    for line in lines:
-        line = line.strip()
-        if not line in availableArchs:
-            availableArchs.append(line)
+    if os.name == "nt":
+      rocmAgentEnum = os.path.join(rocmpath, "bin", "hipinfo.exe")
+      output = subprocess.check_output([rocmAgentEnum])
+
+      line = ""
+      for line_in in output.decode().splitlines():
+        if 'gcnArchName' in line_in:
+          line += line_in.split()[1]
+          break # detemine if hipinfo will support multiple arch
+      arch = gfxArch(line.strip())
+      availableArchs.append("gfx000")
+      availableArchs.append(arch)
+    else:
+      rocmAgentEnum = os.path.join(rocmpath, "bin", "rocm_agent_enumerator")
+      output = subprocess.check_output([rocmAgentEnum, "-t", "GPU"])
+      lines = output.decode().splitlines()
+      for line in lines:
+          line = line.strip()
+          if not line in availableArchs:
+              availableArchs.append(line)
+
     return availableArchs
 
 def findConfigs(rootDir=None):

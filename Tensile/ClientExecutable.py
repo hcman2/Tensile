@@ -25,6 +25,10 @@ import subprocess
 
 from . import Common
 from .Common import globalParameters
+from .Parallel import CPUThreadCount
+
+def cmake_path(os_path):
+    return (os_path.replace("\\", "/") if (os.name == "nt") else os_path)
 
 class CMakeEnvironment:
     def __init__(self, sourceDir, buildDir, **options):
@@ -35,15 +39,17 @@ class CMakeEnvironment:
     def generate(self):
 
         args = ['cmake']
-        args += itertools.chain.from_iterable([ ['-D', '{}={}'.format(key, value)] for key,value in self.options.items()])
+        args += ['-G', 'Ninja'] if (os.name == 'nt') else []
+        args += itertools.chain.from_iterable([ ['-D{}={}'.format(key, value)] for key,value in self.options.items()])
         args += [self.sourceDir]
+        args = [cmake_path(arg) for arg in args]
 
         Common.print2(' '.join(args))
         with Common.ClientExecutionLock():
             subprocess.check_call(args, cwd=Common.ensurePath(self.buildDir))
 
     def build(self):
-        args = ['make', '-j']
+        args = [('ninja' if (os.name == "nt") else 'make'), f'-j{CPUThreadCount()}']
         Common.print2(' '.join(args))
         with Common.ClientExecutionLock():
             subprocess.check_call(args, cwd=self.buildDir)
@@ -57,11 +63,15 @@ def clientExecutableEnvironment(builddir=None):
         builddir = os.path.join(globalParameters["OutputPath"], globalParameters["ClientBuildPath"])
     builddir = Common.ensurePath(builddir)
 
+    CxxCompiler = "clang++.exe" if ((os.name == "nt") and (globalParameters['CxxCompiler'] == "hipcc")) else globalParameters['CxxCompiler']
+    CCompiler   = "clang.exe"   if ((os.name == "nt") and (globalParameters['CxxCompiler'] == "hipcc")) else globalParameters['CxxCompiler']
+
     options = {'CMAKE_BUILD_TYPE': globalParameters["CMakeBuildType"],
                'TENSILE_USE_MSGPACK': 'ON',
-               'TENSILE_USE_LLVM': 'ON',
+               'TENSILE_USE_LLVM': 'OFF' if (os.name == "nt") else 'ON',
                'Tensile_LIBRARY_FORMAT': globalParameters["LibraryFormat"],
-               'CMAKE_CXX_COMPILER': os.path.join(globalParameters["ROCmBinPath"], globalParameters['CxxCompiler'])}
+               'CMAKE_CXX_COMPILER': os.path.join(globalParameters["ROCmBinPath"], CxxCompiler),
+               'CMAKE_C_COMPILER': os.path.join(globalParameters["ROCmBinPath"], CCompiler)}
 
     return CMakeEnvironment(sourcedir, builddir, **options)
 

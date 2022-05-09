@@ -52,9 +52,9 @@ namespace Tensile
     enum class PerformanceMetric : int
     {
         Auto = 0,
-        CUEfficiency = 1,
-        DeviceEfficiency = 2,
-        Count = 3,
+        CUEfficiency,
+        DeviceEfficiency,
+        Count
     };
 
     std::string   ToString(PerformanceMetric d);

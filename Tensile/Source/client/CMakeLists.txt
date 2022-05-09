@@ -17,8 +17,6 @@ set(client_sources
     source/TimingEvents.cpp
     )
 
-SET(Boost_USE_STATIC_LIBS ON)
-
 if(NOT WIN32)
     set(client_sources ${client_sources}
         source/HardwareMonitor.cpp

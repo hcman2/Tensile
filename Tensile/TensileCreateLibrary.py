@@ -102,10 +102,10 @@ def getAssemblyCodeObjectFiles(kernels, kernelWriterAssembly, outputPath):
             file.flush()
 
           args = [globalParameters['AssemblerPath'], '-target', 'amdgcn-amd-amdhsa', '-o', coFile, '@clangArgs.txt']
-          subprocess.check_call(args, cwd=asmDir)
+          subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=asmDir)
         else:
           args = kernelWriterAssembly.getLinkCodeObjectArgs(objectFiles, coFile)
-          subprocess.check_call(args, cwd=asmDir)
+          subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=asmDir)
 
         coFiles.append(coFile)
       else:
@@ -198,7 +198,7 @@ def buildSourceCodeObjectFile(CxxCompiler, outputPath, kernelFile):
 
       if globalParameters["PrintCodeCommands"]:
         print('hipcc:', ' '.join(compileArgs))
-      subprocess.check_call(compileArgs)
+      subprocess.check_output(compileArgs, stderr=subprocess.STDOUT)
 
       infile = os.path.join(buildPath, objectFilename)
       try:
@@ -212,7 +212,7 @@ def buildSourceCodeObjectFile(CxxCompiler, outputPath, kernelFile):
             bundlerArgs = [globalParameters["ClangOffloadBundlerPath"], "-type=o", "-targets=%s" % target, "-inputs=%s" % infile, "-outputs=%s" % outfile, "-unbundle"]
             if globalParameters["PrintCodeCommands"]:
               print(' '.join(bundlerArgs))
-            subprocess.check_call(bundlerArgs)
+            subprocess.check_output(bundlerArgs, stderr=subprocess.STDOUT)
 
       except subprocess.CalledProcessError:
         for i in range(len(archs)):
@@ -220,7 +220,7 @@ def buildSourceCodeObjectFile(CxxCompiler, outputPath, kernelFile):
           bundlerArgs = [globalParameters["ClangOffloadBundlerPath"], "-type=o", "-targets=hip-amdgcn-amd-amdhsa--%s" % cmdlineArchs[i], "-inputs=%s" % infile, "-outputs=%s" % outfile, "-unbundle"]
           if globalParameters["PrintCodeCommands"]:
             print(' '.join(bundlerArgs))
-          subprocess.check_call(bundlerArgs)
+          subprocess.check_output(bundlerArgs, stderr=subprocess.STDOUT)
 
       coFilenames = ["{0}-000-{1}.hsaco".format(soFilename, arch) for arch in archs]
     else:
@@ -263,13 +263,27 @@ def prepAsm(kernelWriterAssembly):
   Create and prepare the assembly directory  - called ONCE per output dir:
   """
   asmPath = ensurePath(os.path.join(globalParameters["WorkingPath"], "assembly") )
+  isa = globalParameters["CurrentISA"]
   assemblerFileName = os.path.join(asmPath, \
       "asm-new.%s"%("bat" if os.name=="nt" else "sh"))
   assemblerFile = open(assemblerFileName, "w")
   if os.name == "nt":
-    assemblerFile.write("echo Windows: Copying instead of Assembling\n")
-    assemblerFile.write("copy %1.s %1.o\n")
-    assemblerFile.write("copy %1.o %1.co\n")
+    assemblerFile.write("@echo off\n")
+    assemblerFile.write("set f=%1\n\n")
+    assemblerFile.write("set arg2=--wave64\n")
+    assemblerFile.write("if [%2] NEQ [] set arg2=%2\n\n")
+    assemblerFile.write("set /A wave=64\n")
+    assemblerFile.write("if %arg2% EQU --wave32 set /A wave=32\n\n")
+
+    assemblerFile.write("set h={gfxName}\n".format(gfxName = Common.gfxName(isa)))
+
+    cArgs32 = " ".join(kernelWriterAssembly.getCompileArgs("%f%.s", "%f%.o", isa=isa, wavefrontSize=32))
+    cArgs64 = " ".join(kernelWriterAssembly.getCompileArgs("%f%.s", "%f%.o", isa=isa, wavefrontSize=64))
+    lArgs   = " ".join(kernelWriterAssembly.getLinkCodeObjectArgs(["%f%.o"], "%f%.co"))
+
+    assemblerFile.write(f"if %wave% == 32 ({cArgs32}) else ({cArgs64})\n")
+    assemblerFile.write(f"{lArgs}\n")
+    assemblerFile.write( "copy %f%.co ..\..\..\library\%f%_%h%.co\n")
   else:
     assemblerFile.write("#!/bin/sh {log}\n".format(log = "-x" if globalParameters["PrintLevel"] >=2  else ""))
     assemblerFile.write("# usage: asm-new.sh kernelName(no extension) [--wave32]\n")
@@ -284,7 +298,6 @@ def prepAsm(kernelWriterAssembly):
     assemblerFile.write("fi\n")
 
 
-    isa = globalParameters["CurrentISA"]
     assemblerFile.write("h={gfxName}\n".format(gfxName = Common.gfxName(isa)))
 
     cArgs32 = kernelWriterAssembly.getCompileArgs("$f.s", "$f.o", isa=isa, wavefrontSize=32)
