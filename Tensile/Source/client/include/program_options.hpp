@@ -24,7 +24,7 @@
 #include <iostream>
 #include <fstream>
 
-#define DEBUG_ENABLE 0
+#define DEBUG_ENABLE 1
 #define DEBUG_LOG_PO(__VA_ARGS__) if (DEBUG_ENABLE) printf(__VA_ARGS__)
 
 using namespace Tensile;
@@ -385,10 +385,9 @@ namespace roc
         // desc_option describes a particular option
         class desc_option
         {
-            std::string                 m_opts;
-            std::shared_ptr<value_base> m_val;
-            std::string                 m_desc;
-
+            std::string                                  m_opts;
+            std::shared_ptr<value_base>                  m_val;
+            std::string                                  m_desc;
         public:
             // Constructor with options, value and description
             template <typename T>
@@ -438,14 +437,14 @@ namespace roc
             }
 
             // Set a value
-            void set_val(int& argc, char**& argv, std::string inopt) const
+            void set_val(int& argc, char**& argv, std::string inopt, std::unordered_map<std::string,std::string>* p_uncfg) const
             {
                 // We test all supported types with dynamic_cast and parse accordingly
                 DEBUG_LOG_PO("[set_val] start\n");
                 bool match = false;
                 if(inopt.compare(0, 7, "--init-") == 0)
                 {
-                    DEBUG_LOG_PO("[set_val] skip InitMode\n");
+                    DEBUG_LOG_PO("[set_val] skip DEBUG_LOG_PO\n");
                     match = true;
                 }
                 else if(inopt.compare(0, 14, "--bounds-check") == 0)
@@ -626,19 +625,23 @@ namespace roc
                 --argc;
             }
             // Set a value
-            void set_val(int& argc, const char* argv, std::string inopt) const
+            void set_val(int& argc, const char* argv, std::string inopt, std::unordered_map<std::string,std::string>* p_uncfg) const
             {
                 // We test all supported types with dynamic_cast and parse accordingly
                 DEBUG_LOG_PO("[set_val] start\n");
                 bool match = false;
                 if(inopt.compare(0, 7, "--init-") == 0)
                 {
-                    DEBUG_LOG_PO("[set_val] skip InitMode\n");
+                    DEBUG_LOG_PO("[set_val] skip DEBUG_LOG_PO\n");
+                    if(p_uncfg != nullptr)
+                        (*p_uncfg)[std::string(inopt.begin() + 2, inopt.end())] = std::string(argv);
                     match = true;
                 }
                 else if(inopt.compare(0, 14, "--bounds-check") == 0)
                 {
                     DEBUG_LOG_PO("[set_val] skip BoundsCheckMode\n");
+                    if(p_uncfg != nullptr)
+                        (*p_uncfg)[std::string(inopt.begin() + 2, inopt.end())] = std::string(argv);
                     match = true;
                 }
                 else if(inopt == "--problem-size" || 
@@ -894,7 +897,8 @@ namespace roc
         };
 
         // Parse an option at the current (argc, argv) position
-        void parse_option(int& argc, std::vector<std::string>& argv, variables_map& vm, bool ignoreUnknown) const
+        void parse_option(int& argc, std::vector<std::string>& argv, variables_map& vm, bool ignoreUnknown,
+                          std::unordered_map<std::string,std::string>* p_uncfg) const
         {
             DEBUG_LOG_PO("[parse_option]\n");
             // Iterate across all options
@@ -928,7 +932,7 @@ namespace roc
                         // If option has a value, set it
                         auto got = opt.get_val().get();
                         if(got){
-                            opt.set_val(argc, argv[argv.size() - argc].c_str(), prefix + tok->str());
+                            opt.set_val(argc, argv[argv.size() - argc].c_str(), prefix + tok->str(), p_uncfg);
                         }
 
                         // Add seen options to map
@@ -953,7 +957,8 @@ namespace roc
         }
         
         // Parse an option at the current (argc, argv) position
-        void parse_option(int& argc, char**& argv, variables_map& vm, bool ignoreUnknown) const
+        void parse_option(int& argc, char**& argv, variables_map& vm, bool ignoreUnknown,
+                          std::unordered_map<std::string,std::string>* p_uncfg) const
         {
             DEBUG_LOG_PO("[parse_option]\n");
             // Iterate across all options
@@ -972,14 +977,12 @@ namespace roc
                     // The first option in a list of options is the canonical name
                     if(!canonical_name.length())
                         canonical_name = tok->str();
-                    
-                    std::cout<<canonical_name<<std::endl;    
+                      
                     // If the length of the option is 1, it is single-dash; otherwise double-dash
                     const char* prefix = tok->length() == 1 ? "-" : "--";
                     
                     // If option matches
                     DEBUG_LOG_PO("[parse_option] Check if option matches\n");
-                    printf("%s\n", *argv);
                     if(*argv == prefix + tok->str())
                     {
                         
@@ -989,7 +992,7 @@ namespace roc
                         // If option has a value, set it
                         auto got = opt.get_val().get();
                         if(got){
-                            opt.set_val(argc, argv, prefix + tok->str());
+                            opt.set_val(argc, argv, prefix + tok->str(), p_uncfg);
                         }
 
                         // Add seen options to map
@@ -1028,10 +1031,11 @@ namespace roc
         }
 
         // Parse all options
-        void parse_options(int&           argc,
-                           char**&        argv,
-                           variables_map& vm,
-                           bool           ignoreUnknown = false) const
+        void parse_options(int&                                         argc,
+                           char**&                                      argv,
+                           variables_map&                               vm,
+                           bool                                         ignoreUnknown = false,
+                           std::unordered_map<std::string,std::string>* p_uncfg = nullptr) const
         {
             // Add options with default values to map
             for(const auto& opt : m_optlist)
@@ -1051,15 +1055,16 @@ namespace roc
             DEBUG_LOG_PO("[parse_options] add options done\n");
             // Parse options
             while(argc)
-                parse_option(argc, argv, vm, ignoreUnknown);
+                parse_option(argc, argv, vm, ignoreUnknown, p_uncfg);
 
         }
-        
+
         // Parse all options
-        void parse_options(int&                      argc,
-                           std::vector<std::string>& argv,
-                           variables_map&            vm,
-                           bool                      ignoreUnknown = false) const
+        void parse_options(int&                                         argc,
+                           std::vector<std::string>&                    argv,
+                           variables_map&                               vm,
+                           bool                                         ignoreUnknown = false,
+                           std::unordered_map<std::string,std::string>* p_uncfg = nullptr) const
         {
             // Add options with default values to map
             for(const auto& opt : m_optlist)
@@ -1079,7 +1084,7 @@ namespace roc
             DEBUG_LOG_PO("[parse_options] add options done\n");
             // Parse options
             while(argc)
-                parse_option(argc, argv, vm, ignoreUnknown);
+                parse_option(argc, argv, vm, ignoreUnknown, p_uncfg);
 
         }
 
@@ -1152,7 +1157,7 @@ namespace roc
     class parse_command_line
     {
         variables_map m_vm;
-
+        std::unordered_map<std::string,std::string> m_unconfig;
     public:
         parse_command_line(int                        argc,
                            const char**               argv,
@@ -1194,6 +1199,7 @@ namespace roc
     class parse_config_file
     {
         variables_map m_vm;
+        std::unordered_map<std::string,std::string> m_unconfig;
     public:
         parse_config_file(std::ifstream&             file,
                           const options_description& desc,
@@ -1201,11 +1207,13 @@ namespace roc
         {
             DEBUG_LOG_PO("[parse_config_file] start\n");
             //file to argc and argv
+            m_unconfig.clear();
             std::string line;
             std::vector<std::string> vecstr;
             char **argv;
             int argc = 0;
             char str[256];
+
             while(std::getline(file, line))
             {
                 std::size_t found = line.find('=');
@@ -1239,7 +1247,7 @@ namespace roc
             }
             
             DEBUG_LOG_PO("[parse_config_file] parse options\n");
-            desc.parse_options(argc, vecstr, m_vm, ignoreUnknown);
+            desc.parse_options(argc, vecstr, m_vm, ignoreUnknown, &m_unconfig);
             DEBUG_LOG_PO("[parse_config_file] parse options done\n");
             
             for (int i = 0; i < argc; i++)
@@ -1252,18 +1260,22 @@ namespace roc
         }
         
        // Copy the variables_map
-        friend inline void store(const parse_config_file& p, variables_map& vm);
-        friend inline void store(const parse_config_file&& p, variables_map& vm);
+        friend inline void store(const parse_config_file& p, variables_map& vm, std::unordered_map<std::string,std::string>* p_uncfg);
+        friend inline void store(const parse_config_file&& p, variables_map& vm, std::unordered_map<std::string,std::string>* p_uncfg);
     };
     
-    inline void store(const parse_config_file& p, variables_map& vm)
+    inline void store(const parse_config_file& p, variables_map& vm, std::unordered_map<std::string,std::string>* p_uncfg)
     {
         vm = p.m_vm;
+        if(p_uncfg != nullptr)
+            *p_uncfg = p.m_unconfig;
     }
     
-    inline void store(const parse_config_file&& p, variables_map& vm)
+    inline void store(const parse_config_file&& p, variables_map& vm, std::unordered_map<std::string,std::string>* p_uncfg)
     {
         vm = std::move(p.m_vm);
+        if(p_uncfg != nullptr)
+            *p_uncfg = p.m_unconfig;
     }
 
     // We can define the notify() function as a no-op for our purposes

@@ -352,7 +352,92 @@ namespace Tensile
         //    
         //    args.at(name).set(outValue);
         //}
-
+        
+        void parse_unconfig_arg(pomain::variables_map& args, std::string opt, std::string strValue)
+        {
+            if(opt.compare(0, 5, "init-") == 0)
+            {
+                InitMode mode;
+                if(strValue == ToString(InitMode::Zero))
+                    mode = InitMode::Zero;
+                else if(strValue == ToString(InitMode::One))
+                    mode = InitMode::One;
+                else if(strValue == ToString(InitMode::Two))
+                    mode = InitMode::Two;
+                else if(strValue == ToString(InitMode::Random))
+                    mode = InitMode::Random;
+                else if(strValue == ToString(InitMode::NaN))
+                    mode = InitMode::NaN;
+                else if(strValue == ToString(InitMode::Inf))
+                    mode = InitMode::Inf;
+                else if(strValue == ToString(InitMode::BadInput))
+                    mode = InitMode::BadInput;
+                else if(strValue == ToString(InitMode::BadOutput))
+                    mode = InitMode::BadOutput;
+                else if(strValue == ToString(InitMode::SerialIdx))
+                    mode = InitMode::SerialIdx;
+                else if(strValue == ToString(InitMode::SerialDim0))
+                    mode = InitMode::SerialDim0;
+                else if(strValue == ToString(InitMode::SerialDim1))
+                    mode = InitMode::SerialDim1;
+                else if(strValue == ToString(InitMode::Identity))
+                    mode = InitMode::Identity;
+                else if(strValue == ToString(InitMode::TrigSin))
+                    mode = InitMode::TrigSin;
+                else if(strValue == ToString(InitMode::TrigCos))
+                    mode = InitMode::TrigCos;
+                else if(strValue == ToString(InitMode::TrigAbsSin))
+                    mode = InitMode::TrigAbsSin;
+                else if(strValue == ToString(InitMode::TrigAbsCos))
+                    mode = InitMode::TrigAbsCos;
+                else if(strValue == ToString(InitMode::RandomNarrow))
+                    mode = InitMode::RandomNarrow;
+                else if(strValue == ToString(InitMode::NegOne))
+                    mode = InitMode::NegOne;
+                else if(strValue == ToString(InitMode::Max))
+                    mode = InitMode::Max;
+                else if(strValue == ToString(InitMode::DenormMin))
+                    mode = InitMode::DenormMin;
+                else if(strValue == ToString(InitMode::DenormMax))
+                    mode = InitMode::DenormMax; 
+                auto type = args[opt].as<InitMode>();
+                args.at(opt).set(mode);
+            }
+            else if(opt.compare(0, 12, "bounds-check") == 0)
+            {
+                BoundsCheckMode mode;
+                if(strValue == "Disable")
+                    mode = BoundsCheckMode::Disable;
+                else if(strValue == "NaN")
+                    mode = BoundsCheckMode::NaN;
+                else if(strValue == "GuardPageFront")
+                    mode = BoundsCheckMode::GuardPageFront;
+                else if(strValue == "GuardPageBack")
+                    mode = BoundsCheckMode::GuardPageBack;
+                else if(strValue == "GuardPageAll")
+                    mode = BoundsCheckMode::GuardPageAll;
+                else if(std::all_of(strValue.begin(), strValue.end(), isdigit))
+                {
+                    int value = atoi(strValue.c_str());
+                    if(value >= 0 && value < static_cast<int>(BoundsCheckMode::MaxMode))
+                        mode = static_cast<BoundsCheckMode>(value);
+                    else
+                        throw std::runtime_error(
+                            concatenate("Can't convert ", strValue, " to BoundsCheckMode."));
+                }
+                else
+                {
+                    throw std::runtime_error(
+                        concatenate("Can't convert ", strValue, " to BoundsCheckMode."));
+                }
+                args.at(opt).set(mode);
+            }
+            else
+            {
+                DEBUG_LOG("ERROR: unconfigable option \n");
+            }
+        }
+        
         void fix_data_types(pomain::variables_map& args)
         {
             auto type = args["type"].as<DataType>();
@@ -386,6 +471,7 @@ namespace Tensile
                 exit(1);
             }
 
+            std::unordered_map<std::string,std::string> unconfig;
             if(args.count("config-file"))
             {
                 DEBUG_LOG("parse_config_file start\n");
@@ -396,11 +482,22 @@ namespace Tensile
                     std::ifstream file(filename.c_str());
                     if(file.bad())
                         throw std::runtime_error(concatenate("Could not open ", filename));
-                    pomain::store(pomain::parse_config_file(file, options), args);
+                    pomain::store(pomain::parse_config_file(file, options), args, &unconfig);
                 }
                 DEBUG_LOG("parse_config_file done\n");
             }
+            
+            if(!unconfig.empty())
+            {
+                for( auto iter = unconfig.begin(); iter != unconfig.end(); iter++)
+                {
+                    std::string opt = iter->first;
+                    std::string val = iter->second;
+                    parse_unconfig_arg(args, opt, val);
 
+                }
+            }
+            
             fix_data_types(args);
             DEBUG_LOG("fix_data_types done\n");
             //parse_arg_ints(args, "problem-size");
