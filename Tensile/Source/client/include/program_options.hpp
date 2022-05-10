@@ -652,9 +652,9 @@ namespace roc
                     DEBUG_LOG_PO("[set_val] bool\n");
                     std::string in(*argv);
                     match = true;
-                    if(in == "True" || in == "true")
+                    if(in == "True" || in == "true" || in == "1")
                         ptr->actual_value(true);
-                    else if(in == "False" || in == "false")
+                    else if(in == "False" || in == "false" || in == "0")
                         ptr->actual_value(false);
                     else
                         match = false;
@@ -917,9 +917,9 @@ namespace roc
                     DEBUG_LOG_PO("[set_val] bool\n");
                     std::string in(argv);
                     match = true;
-                    if(in == "True" || in == "true")
+                    if(in == "True" || in == "true" || in == "1")
                         ptr->actual_value(true);
-                    else if(in == "False" || in == "false")
+                    else if(in == "False" || in == "false" || in == "0")
                         ptr->actual_value(false);
                     else
                         match = false;
