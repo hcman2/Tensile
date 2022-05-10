@@ -63,12 +63,11 @@ namespace roc
         std::size_t prev = 0;
         while (1)
         {
+            found = std::string::npos;
             for (auto p : Pred)
             {
-                found = Input.find(p, prev);
-                if (found != std::string::npos) break; 
+                found = std::min(Input.find(p, prev), found);
             }                
-            
             if (found != std::string::npos)
             {
                 std::string s(Input.begin() + prev, Input.begin() + found);
@@ -483,6 +482,8 @@ namespace roc
                         }
                         ptr->actual_value(vals);
                         match = true;
+                        if(!values_int.empty())
+                            match = false;
                     }
                 }
                 else if(auto* ptr = dynamic_cast<value<TensorOp>*>(m_val.get()))
@@ -759,6 +760,8 @@ namespace roc
                         }
                         ptr->actual_value(vals);
                         match = true;
+                        if(!values_int.empty())
+                            match = false;
                     }
                 }
                 else if(auto* ptr = dynamic_cast<value<TensorOp>*>(m_val.get()))
