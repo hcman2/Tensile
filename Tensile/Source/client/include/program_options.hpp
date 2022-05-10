@@ -8,6 +8,7 @@
 
 #include <Tensile/PerformanceMetricTypes.hpp>
 #include <Tensile/DataTypes.hpp>
+#include <Tensile/TensorOps.hpp>
 #include "ResultReporter.hpp"
 
 #include <cinttypes>
@@ -445,12 +446,89 @@ namespace roc
                 if(inopt.compare(0, 7, "--init-") == 0)
                 {
                     DEBUG_LOG_PO("[set_val] skip DEBUG_LOG_PO\n");
+                    if(p_uncfg != nullptr)
+                        (*p_uncfg)[std::string(inopt.begin() + 2, inopt.end())] = std::string(*argv);
                     match = true;
                 }
                 else if(inopt.compare(0, 14, "--bounds-check") == 0)
                 {
                     DEBUG_LOG_PO("[set_val] skip BoundsCheckMode\n");
+                    if(p_uncfg != nullptr)
+                        (*p_uncfg)[std::string(inopt.begin() + 2, inopt.end())] = std::string(*argv);
                     match = true;
+                }
+                else if(inopt == "--problem-size" || 
+                        inopt == "--a-strides" ||
+                        inopt == "--b-strides" ||
+                        inopt == "--c-strides" ||
+                        inopt == "--d-strides" ||
+                        inopt == "--convolution-problem" ||
+                        inopt == "--a-zero-pads" ||
+                        inopt == "--b-zero-pads")
+                {
+                    DEBUG_LOG_PO("[set_val] problem size/a,b,c,d stride\n");
+                    if(auto* ptr = dynamic_cast<value<std::vector<std::vector<size_t>>>*>(m_val.get()))
+                    {
+                        std::string in(*argv);
+                        std::vector<std::string> values;
+                        std::vector<size_t> values_int;
+                        std::string spliter(",");
+                        roc::split(values, in, spliter);
+                        for(auto v : values)
+                            values_int.push_back(lexical_cast<size_t>(v));
+                        auto vals = ptr->get_value();
+                        vals.push_back(values_int);
+                        ptr->actual_value(vals);
+                        match = true;
+                    }
+                }
+                else if(auto* ptr = dynamic_cast<value<TensorOp>*>(m_val.get()))
+                {
+                    DEBUG_LOG_PO("[set_val] TensorOp\n");
+                    std::string in(*argv);
+                    match = true;
+                    if(in == "None")
+                    {
+                        ptr->actual_value(TensorOp(TensorOp::Type::None));
+                    }
+                    else if(in == "ComplexConjugate")
+                    {
+                        ptr->actual_value(TensorOp(TensorOp::Type::ComplexConjugate));
+                    }
+                    else
+                    {
+                        match = false;
+                    }
+                }
+                else if(auto* ptr = dynamic_cast<value<Client::LogLevel>*>(m_val.get()))
+                {
+                    DEBUG_LOG_PO("[set_val] DataType\n");
+                    std::string in(*argv);
+                    match = true;
+                    if(in == "Error")
+                    {
+                        ptr->actual_value(Client::LogLevel::Error);
+                    }
+                    else if(in == "Terse")
+                    {
+                        ptr->actual_value(Client::LogLevel::Terse);
+                    }
+                    else if(in == "Normal")
+                    {
+                        ptr->actual_value(Client::LogLevel::Normal);
+                    }
+                    else if(in == "Verbose")
+                    {
+                        ptr->actual_value(Client::LogLevel::Verbose);
+                    }
+                    else if(in == "Debug")
+                    {
+                        ptr->actual_value(Client::LogLevel::Debug);
+                    }
+                    else
+                    {
+                        match = false;
+                    }
                 }
                 else if(auto* ptr = dynamic_cast<value<DataType>*>(m_val.get()))
                 {
@@ -667,6 +745,24 @@ namespace roc
                         vals.push_back(values_int);
                         ptr->actual_value(vals);
                         match = true;
+                    }
+                }
+                else if(auto* ptr = dynamic_cast<value<TensorOp>*>(m_val.get()))
+                {
+                    DEBUG_LOG_PO("[set_val] TensorOp\n");
+                    std::string in(argv);
+                    match = true;
+                    if(in == "None")
+                    {
+                        ptr->actual_value(TensorOp(TensorOp::Type::None));
+                    }
+                    else if(in == "ComplexConjugate")
+                    {
+                        ptr->actual_value(TensorOp(TensorOp::Type::ComplexConjugate));
+                    }
+                    else
+                    {
+                        match = false;
                     }
                 }
                 else if(auto* ptr = dynamic_cast<value<Client::LogLevel>*>(m_val.get()))
