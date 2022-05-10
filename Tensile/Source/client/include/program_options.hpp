@@ -1,7 +1,7 @@
 /* ************************************************************************
- * Copyright 2020-2021 Advanced Micro Devices, Inc.
+ * Copyright 2020-2022 Advanced Micro Devices, Inc.
  * ************************************************************************ */
-// This emulates the required functionality of boost::program_options
+// This emulates removed dependency of boost library.
 
 #ifndef PROGRAM_OPTIONS_H
 #define PROGRAM_OPTIONS_H
@@ -93,14 +93,6 @@ namespace roc
     public: // structors
         any()
           : content(0)
-        {
-        }
-        
-        template<typename ValueType>
-        any(const ValueType & value)
-          : content(new holder<
-                BOOST_DEDUCED_TYPENAME remove_cv<BOOST_DEDUCED_TYPENAME decay<const ValueType>::type>::type
-            >(value))
         {
         }
 
