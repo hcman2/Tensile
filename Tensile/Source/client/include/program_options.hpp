@@ -25,7 +25,7 @@
 #include <iostream>
 #include <fstream>
 
-#define DEBUG_ENABLE 1
+#define DEBUG_ENABLE 0
 #define DEBUG_LOG_PO(__VA_ARGS__) if (DEBUG_ENABLE) printf(__VA_ARGS__)
 
 using namespace Tensile;
@@ -465,11 +465,22 @@ namespace roc
                         std::vector<std::string> values;
                         std::vector<size_t> values_int;
                         std::string spliter(",");
+                        if(inopt == "--a-zero-pads" || inopt == "--b-zero-pads")
+                            spliter = ",;";
                         roc::split(values, in, spliter);
-                        for(auto v : values)
-                            values_int.push_back(lexical_cast<size_t>(v));
+                        size_t tuples = values.size();
+                        if(inopt == "--a-zero-pads" || inopt == "--b-zero-pads")
+                            tuples = 4;
                         auto vals = ptr->get_value();
-                        vals.push_back(values_int);
+                        for(auto v : values)
+                        {
+                            values_int.push_back(lexical_cast<size_t>(v));
+                            if(values_int.size() == tuples)
+                            {
+                                vals.push_back(values_int);
+                                values_int.clear();
+                            }
+                        }
                         ptr->actual_value(vals);
                         match = true;
                     }
@@ -730,11 +741,22 @@ namespace roc
                         std::vector<std::string> values;
                         std::vector<size_t> values_int;
                         std::string spliter(",");
+                        if(inopt == "--a-zero-pads" || inopt == "--b-zero-pads")
+                            spliter = ",;";
                         roc::split(values, in, spliter);
-                        for(auto v : values)
-                            values_int.push_back(lexical_cast<size_t>(v));
+                        size_t tuples = values.size();
+                        if(inopt == "--a-zero-pads" || inopt == "--b-zero-pads")
+                            tuples = 4;
                         auto vals = ptr->get_value();
-                        vals.push_back(values_int);
+                        for(auto v : values)
+                        {
+                            values_int.push_back(lexical_cast<size_t>(v));
+                            if(values_int.size() == tuples)
+                            {
+                                vals.push_back(values_int);
+                                values_int.clear();
+                            }
+                        }
                         ptr->actual_value(vals);
                         match = true;
                     }
