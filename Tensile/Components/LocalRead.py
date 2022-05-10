@@ -166,6 +166,7 @@ class LocalReadMFMA(LocalRead):
         else:
             numReadsPerUnroll = tP["bpe"] * writer.lrvwB // int(blockWidth * 4) # bytes/register
         numVgpr  = int(ceil(blockWidth))
+        numElementPerRead = int(blockWidth * 4) // tP['bpe']
 
         # pack register
         needPack = blockWidth < 1
@@ -230,10 +231,11 @@ class LocalReadMFMA(LocalRead):
                         else:
                           # normal case
                           offset_val = (eIdx + (vIdx * numOffsets+oIdx) * MIWaveGroupShape[tile01]) * tileStride
-                          offset_val = (rIdx * UnrollStride + offset_val + tP["localReadOffset"]) * tP["bpe"]
+                          offset_val = (rIdx * numElementPerRead * UnrollStride + offset_val + tP["localReadOffset"]) * tP["bpe"]
                         if (kernel["LdsBlockSizePerPad%s"%tc] != 0) and (kernel["LdsPad%s"%tc] != 0):
                             offset_val = offset_val + (offset_val // kernel["LdsBlockSizePerPad%s"%tc]) * kernel["LdsPad%s"%tc] * tP["bpe"]
                         offset_val = offset_val + tP["localReadSwapByteOffset"]
+
                         if (kernel["DirectToLds%s" % tc] and  \
                             kernel["GlobalLoadVectorWidth%c"%tc] * tP["bpe"] > 4):
 

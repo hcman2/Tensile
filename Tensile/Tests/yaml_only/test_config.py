@@ -147,7 +147,7 @@ def findAvailableArchs():
         if 'gcnArchName' in line_in:
           line += line_in.split()[1]
           break # detemine if hipinfo will support multiple arch
-      arch = gfxArch(line.strip())
+      arch = line.strip()
       availableArchs.append("gfx000")
       availableArchs.append(arch)
     else:
