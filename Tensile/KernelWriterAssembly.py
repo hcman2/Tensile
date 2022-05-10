@@ -253,12 +253,12 @@ class KernelWriterAssembly(KernelWriter):
     rv += ['-o', coFileName] + objectFileNames
     return rv
 
-  def getVgprOccupancy(self, numThreads, vgprs, unifiedVgprRegs=False):
+  def getVgprOccupancy(self, numThreads, vgprs, doubleVgpr=False):
     multiplier = int(ceil(max(numThreads, 256) / 256.0)) # example: wg=512 multiplier=2, 1024=4
     maxOccupancy = self.maxOccupancy//multiplier
 
-    vgprAllocateAligned = 4    if not unifiedVgprRegs else 8
-    totalVgprs = self.maxVgprs if not unifiedVgprRegs else self.maxVgprs*2
+    vgprAllocateAligned = 4    if not doubleVgpr else 8
+    totalVgprs = self.maxVgprs if not doubleVgpr else self.maxVgprs*2
     vgprsAligned = int(ceil(vgprs/vgprAllocateAligned))*vgprAllocateAligned
     vgprsAligned *= multiplier
 
@@ -266,36 +266,36 @@ class KernelWriterAssembly(KernelWriter):
     elif vgprsAligned < 1:           return maxOccupancy
     occupancy = min(totalVgprs//vgprsAligned, maxOccupancy)
 
-    #print("vgprs = ", vgprs, "vgprsAligned = ", vgprsAligned, "unifiedVgprRegs = " ,unifiedVgprRegs, "Occupancy = ", occupancy)
+    #print("vgprs = ", vgprs, "vgprsAligned = ", vgprsAligned, "doubleVgpr = " ,doubleVgpr, "Occupancy = ", occupancy)
 
     return occupancy
 
   ########################################
-  def getOccupancy(self, numThreads, vgprs, ldsSize, accvgprs=0, unifiedVgprRegs=False):
+  def getOccupancy(self, numThreads, vgprs, ldsSize, accvgprs=0, doubleVgpr=False):
 
     ldsLimitedOccupancy = self.getLdsLimitedOccupancy(ldsSize)
 
-    if not unifiedVgprRegs:
-      vgprLimitedOccupancy    = self.getVgprOccupancy(numThreads, vgprs,          unifiedVgprRegs)
-      accvgprLimitedOccupancy = self.getVgprOccupancy(numThreads, accvgprs,       unifiedVgprRegs)
+    if not doubleVgpr:
+      vgprLimitedOccupancy    = self.getVgprOccupancy(numThreads, vgprs,          doubleVgpr)
+      accvgprLimitedOccupancy = self.getVgprOccupancy(numThreads, accvgprs,       doubleVgpr)
     else:
-      vgprLimitedOccupancy    = self.getVgprOccupancy(numThreads, vgprs+accvgprs, unifiedVgprRegs)
+      vgprLimitedOccupancy    = self.getVgprOccupancy(numThreads, vgprs+accvgprs, doubleVgpr)
       accvgprLimitedOccupancy = vgprLimitedOccupancy
 
     return min(ldsLimitedOccupancy, vgprLimitedOccupancy, accvgprLimitedOccupancy)
 
   # TODO: also consider sgpr
-  def getMaxRegsForOccupancy(self, numThreads, vgprs, ldsSize, accvgprs=0, unifiedVgprRegs=False):
+  def getMaxRegsForOccupancy(self, numThreads, vgprs, ldsSize, accvgprs=0, doubleVgpr=False):
     lastVgprs = vgprs
-    considerAccVgprs = 0       if not unifiedVgprRegs else accvgprs
-    totalVgprs = self.maxVgprs if not unifiedVgprRegs else self.maxVgprs*2
+    considerAccVgprs = 0       if not doubleVgpr else accvgprs
+    totalVgprs = self.maxVgprs if not doubleVgpr else self.maxVgprs*2
 
-    initOccupancy = self.getOccupancy(numThreads, vgprs, ldsSize, accvgprs, unifiedVgprRegs)
+    initOccupancy = self.getOccupancy(numThreads, vgprs, ldsSize, accvgprs, doubleVgpr)
     if initOccupancy == 0: return lastVgprs
 
     while (vgprs + considerAccVgprs) < totalVgprs and vgprs < self.maxVgprs:
       vgprs += 1
-      if self.getVgprOccupancy(numThreads, vgprs + considerAccVgprs, unifiedVgprRegs) >= initOccupancy:
+      if self.getVgprOccupancy(numThreads, vgprs + considerAccVgprs, doubleVgpr) >= initOccupancy:
         lastVgprs = vgprs
         next
       else:
@@ -720,14 +720,14 @@ class KernelWriterAssembly(KernelWriter):
       print("warning: ISA:", self.version, " is not supported; overriding with ", defaultIsa)
       self.version = defaultIsa
 
-    self.unifiedVgprRegs = False
-    if globalParameters["ArchCaps"][self.version]["ArchAccUnifiedRegs"]:
-      self.unifiedVgprRegs = True
+    self.doubleVgpr = False
+    if globalParameters["ArchCaps"][self.version]["ArchAccUnifiedRegs"] or (kernel["WavefrontSize"] == 32):
+      self.doubleVgpr = True
 
     if kernel["EnableMatrixInstruction"]:
       if (kernel["ProblemType"]["DataType"].MIOutputTypeNameAbbrev() == 'f64') and (not self.asmCaps["HasMFMA_f64"]):
         raise RuntimeError("FP64 MatrixInstruction not supported for {0}".format(self.version))
-      elif not self.asmCaps["HasMFMA"]:
+      elif not (self.asmCaps["HasMFMA"] or self.asmCaps["HasWMMA"]):
         raise RuntimeError("MatrixInstruction not supported for {0}".format(self.version))
 
       if kernel["MFMA_BF16_1K"] and not self.asmCaps["HasMFMA_bf16_1k"]:
@@ -6167,6 +6167,12 @@ class KernelWriterAssembly(KernelWriter):
     shiftK = Code.Module("shiftK")
 
     # calculate constant
+    is_mfma          = globalParameters["AsmCaps"][self.version]["HasMFMA"]
+    instructionName  = "mfma" if is_mfma else "wmma"
+    instructionStep  = ""     if is_mfma else "_"
+    mfma_1k          = "_1k" if (kernel["MFMA_BF16_1K"] or kernel["ProblemType"]["Fp16AltImpl"]) else ""
+    accumRegType     = "a" if not kernel["MIArchVgpr"] else "v"
+
     numRegistersIn   = kernel["ProblemType"]["DataType"].numRegisters()
     numRegistersOut  = kernel["MIRegPerOut"]
     loopCounterName  = self.loopCounterName(kernel, self.unrollIdx)
@@ -6179,8 +6185,6 @@ class KernelWriterAssembly(KernelWriter):
     vgprPerInput     = int(numMIInput * numRegistersIn)
     shiftPerElement  = int(numRegistersIn * 32)
     s_nop            = 0
-    accumRegType     = "a" if not kernel["MIArchVgpr"] else "v"
-    mfma_1k          = "_1k" if (kernel["MFMA_BF16_1K"] or kernel["ProblemType"]["Fp16AltImpl"]) else ""
     accStoreCIdx     = self.startaccValuC1 if kernel["StoreCInUnroll"] and lastKinloop else 0
 
     if tail and self.prefetchAcrossPersistent0:
@@ -6212,80 +6216,126 @@ class KernelWriterAssembly(KernelWriter):
 
     # handle multiple K element in MFMA instruction
     if tail and kernel["MatrixInstK"] > 1:
-      kReg    = self.vgprPool.checkOut(1,"kReg") # remainder
-      tmpSgpr = self.getTmpSgpr(3).idx()
-      shiftK.addCode(vectorStaticRemainder(dummy, kReg, "Serial", self.kernel["WavefrontSize"], tmpVgpr, tmpSgpr))
-      shiftK.addCode(vectorStaticDivide(kReg, kReg, dividerFortidInK, tmpVgpr, tmpSgpr))
-      shiftK.addCode(staticMultiply(vgpr(kReg), vgpr(kReg), numMIInput, sgpr(tmpSgpr)))
+      if is_mfma:
+        kReg    = self.vgprPool.checkOut(1,"kReg") # remainder
+        tmpSgpr = self.getTmpSgpr(3).idx()
+        shiftK.addCode(vectorStaticRemainder(dummy, kReg, "Serial", self.kernel["WavefrontSize"], tmpVgpr, tmpSgpr))
+        shiftK.addCode(vectorStaticDivide(kReg, kReg, dividerFortidInK, tmpVgpr, tmpSgpr))
+        shiftK.addCode(staticMultiply(vgpr(kReg), vgpr(kReg), numMIInput, sgpr(tmpSgpr)))
 
-      # replace 0 for differnet thread
-      shiftK.addCode(inst("v_cmp_ge_i32", sgpr(tmpSgpr, 2), vgpr(kReg), sgpr(loopCounterName), "check K index >= Size L"))
-      for bk in range(0, vgprPerInput):
-        for a in range(0, kernel["MIWaveTileA"]):
-          for iui in range(0, innerUnroll):
-            aStr = vgpr("ValuA_X%u_I%u+%u+%u" % (m, iui, a*vgprPerInput, bk), 1)
-            if kernel["DirectToVgprA"]:
-              # overwrite aStr for DirectToVgprA
-              tmpVregIdx = (iui * kernel["MIWaveTileA"] + a) * vgprPerInput + bk + vregSetIdx * numVgprPerBlockA
-              aStr  = vgpr("G2LA+%u" % (tmpVregIdx), 1)
-            shiftK.addCode(inst("v_cndmask_b32", aStr, aStr, hex(0), sgpr(tmpSgpr, 2), "set 0 if K_idx >= sizeL"))
-        for b in range(0, kernel["MIWaveTileB"]):
-          for iui in range(0, innerUnroll):
-            bStr = vgpr("ValuB_X%u_I%u+%u+%u" % (m, iui, b*vgprPerInput, bk), 1)
-            if kernel["DirectToVgprB"]:
-              # overwrite bStr for DirectToVgprB
-              tmpVregIdx = (iui * kernel["MIWaveTileB"] + b) * vgprPerInput + bk + vregSetIdx * numVgprPerBlockB
-              bStr  = vgpr("G2LB+%u" % (tmpVregIdx), 1)
-            shiftK.addCode(inst("v_cndmask_b32", bStr, bStr, hex(0), sgpr(tmpSgpr, 2), "set 0 if K_idx >= sizeL"))
-
-      # replace 0 for same thread
-      if numMIInput > 1:
-        abReg   = self.vgprPool.checkOutAligned(vgprPerInput, 2 if vgprPerInput>1 else 1, "abReg")
-        tmpVgpr = self.vgprPool.checkOutAligned(2,2,"tmpVgpr")
-        dummy   = self.vgprPool.checkOut(1,"dummy")
-        shiftK.addCode(inst("_v_sub_u32",    vgpr(kReg), sgpr(loopCounterName), vgpr(kReg), "get distance between size and k index"))
-        shiftK.addCode(inst("v_cmp_lt_i32", sgpr(tmpSgpr,2), vgpr(kReg), numMIInput, "set partial 0 if distance less than input per thread"))
-        shiftK.addCode(inst("s_and_b32",    sgpr(tmpSgpr+2), sgpr(loopCounterName), numMIInput-1, "get inputs for edge thread"))
-        shiftK.addCode(inst("s_sub_u32",    sgpr(tmpSgpr+2), numMIInput, sgpr(tmpSgpr+2), "use shift to fill 0 for outside element"))
-        shiftK.addCode(inst("s_lshl_b32",   sgpr(tmpSgpr+2), sgpr(tmpSgpr+2), log2(shiftPerElement), "use shift to fill 0 for outside element"))
-        for a in range(0, kernel["MIWaveTileA"]):
-          for iui in range(0, innerUnroll):
-            iuiA_new = (iui//self.numReadsIterCoalescedA)*self.numReadsIterCoalescedA
-            iuiA_new_offset = iui%self.numReadsIterCoalescedA*vgprPerInput
-            a_new = a*vgprPerInput*self.numReadsIterCoalescedA
-            aStr = vgpr("ValuA_X%u_I%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset), vgprPerInput)
-            tmpVregIdx = 0
-            if kernel["DirectToVgprA"]:
-              # overwrite aStr for DirectToVgprA
-              tmpVregIdx = (iui * kernel["MIWaveTileA"] + a) * vgprPerInput + vregSetIdx * numVgprPerBlockA
-              aStr  = vgpr("G2LA+%u" % (tmpVregIdx), vgprPerInput)
-            shiftK.addCode(inst("v_lshlrev_b%u" % (vgprPerInput*32), vgpr(abReg, vgprPerInput), sgpr(tmpSgpr+2), aStr, ""))
-            for bk in range(0, vgprPerInput):
-              aStr  = vgpr("ValuA_X%u_I%u+%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset, bk), 1)
+        # replace 0 for differnet thread
+        shiftK.addCode(inst("v_cmp_ge_i32", sgpr(tmpSgpr, 2), vgpr(kReg), sgpr(loopCounterName), "check K index >= Size L"))
+        for bk in range(0, vgprPerInput):
+          for a in range(0, kernel["MIWaveTileA"]):
+            for iui in range(0, innerUnroll):
+              aStr = vgpr("ValuA_X%u_I%u+%u+%u" % (m, iui, a*vgprPerInput, bk), 1)
               if kernel["DirectToVgprA"]:
                 # overwrite aStr for DirectToVgprA
-                tmp   = tmpVregIdx + bk
-                aStr  = vgpr("G2LA+%u" % (tmp), vgprPerInput)
-              shiftK.addCode(inst("v_cndmask_b32", aStr, aStr, vgpr(abReg+bk), sgpr(tmpSgpr, 2), ""))
-        for b in range(0, kernel["MIWaveTileB"]):
-          for iui in range(0, innerUnroll):
-            iuiB_new = (iui//self.numReadsIterCoalescedB)*self.numReadsIterCoalescedB
-            iuiB_new_offset = iui%self.numReadsIterCoalescedB*vgprPerInput
-            b_new = b*vgprPerInput*self.numReadsIterCoalescedB
-            bStr = vgpr("ValuB_X%u_I%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset), vgprPerInput)
-            tmpVregIdx = 0
-            if kernel["DirectToVgprB"]:
-              # overwrite bStr for DirectToVgprB
-              tmpVregIdx = (iui * kernel["MIWaveTileB"] + b) * vgprPerInput + vregSetIdx * numVgprPerBlockB
-              bStr  = vgpr("G2LB+%u" % (tmpVregIdx), vgprPerInput)
-            shiftK.addCode(inst("v_lshlrev_b%u" % (vgprPerInput*32), vgpr(abReg, vgprPerInput), sgpr(tmpSgpr+2), bStr, ""))
-            for bk in range(0, vgprPerInput):
-              bStr = vgpr("ValuB_X%u_I%u+%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset, bk), 1)
+                tmpVregIdx = (iui * kernel["MIWaveTileA"] + a) * vgprPerInput + bk + vregSetIdx * numVgprPerBlockA
+                aStr  = vgpr("G2LA+%u" % (tmpVregIdx), 1)
+              shiftK.addCode(inst("v_cndmask_b32", aStr, aStr, hex(0), sgpr(tmpSgpr, 2), "set 0 if K_idx >= sizeL"))
+          for b in range(0, kernel["MIWaveTileB"]):
+            for iui in range(0, innerUnroll):
+              bStr = vgpr("ValuB_X%u_I%u+%u+%u" % (m, iui, b*vgprPerInput, bk), 1)
               if kernel["DirectToVgprB"]:
                 # overwrite bStr for DirectToVgprB
-                tmp   = tmpVregIdx + bk
-                bStr  = vgpr("G2LB+%u" % (tmp), 1)
-              shiftK.addCode(inst("v_cndmask_b32", bStr, bStr, vgpr(abReg+bk), sgpr(tmpSgpr, 2), ""))
+                tmpVregIdx = (iui * kernel["MIWaveTileB"] + b) * vgprPerInput + bk + vregSetIdx * numVgprPerBlockB
+                bStr  = vgpr("G2LB+%u" % (tmpVregIdx), 1)
+              shiftK.addCode(inst("v_cndmask_b32", bStr, bStr, hex(0), sgpr(tmpSgpr, 2), "set 0 if K_idx >= sizeL"))
+
+        # replace 0 for same thread
+        if numMIInput > 1:
+          abReg   = self.vgprPool.checkOutAligned(vgprPerInput, 2 if vgprPerInput>1 else 1, "abReg")
+          tmpVgpr = self.vgprPool.checkOutAligned(2,2,"tmpVgpr")
+          dummy   = self.vgprPool.checkOut(1,"dummy")
+          shiftK.addCode(inst("_v_sub_u32",    vgpr(kReg), sgpr(loopCounterName), vgpr(kReg), "get distance between size and k index"))
+          shiftK.addCode(inst("v_cmp_lt_i32", sgpr(tmpSgpr,2), vgpr(kReg), numMIInput, "set partial 0 if distance less than input per thread"))
+          shiftK.addCode(inst("s_and_b32",    sgpr(tmpSgpr+2), sgpr(loopCounterName), numMIInput-1, "get inputs for edge thread"))
+          shiftK.addCode(inst("s_sub_u32",    sgpr(tmpSgpr+2), numMIInput, sgpr(tmpSgpr+2), "use shift to fill 0 for outside element"))
+          shiftK.addCode(inst("s_lshl_b32",   sgpr(tmpSgpr+2), sgpr(tmpSgpr+2), log2(shiftPerElement), "use shift to fill 0 for outside element"))
+          for a in range(0, kernel["MIWaveTileA"]):
+            for iui in range(0, innerUnroll):
+              iuiA_new = (iui//self.numReadsIterCoalescedA)*self.numReadsIterCoalescedA
+              iuiA_new_offset = iui%self.numReadsIterCoalescedA*vgprPerInput
+              a_new = a*vgprPerInput*self.numReadsIterCoalescedA
+              aStr = vgpr("ValuA_X%u_I%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset), vgprPerInput)
+              tmpVregIdx = 0
+
+              if kernel["DirectToVgprA"]:
+                # overwrite aStr for DirectToVgprA
+                tmpVregIdx = (iui * kernel["MIWaveTileA"] + a) * vgprPerInput + vregSetIdx * numVgprPerBlockA
+                aStr  = vgpr("G2LA+%u" % (tmpVregIdx), vgprPerInput)
+              shiftK.addCode(inst("v_lshlrev_b%u" % (vgprPerInput*32), vgpr(abReg, vgprPerInput), sgpr(tmpSgpr+2), aStr, ""))
+
+              for bk in range(0, vgprPerInput):
+                aStr  = vgpr("ValuA_X%u_I%u+%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset, bk), 1)
+                if kernel["DirectToVgprA"]:
+                  # overwrite aStr for DirectToVgprA
+                  tmp   = tmpVregIdx + bk
+                  aStr  = vgpr("G2LA+%u" % (tmp), vgprPerInput)
+                shiftK.addCode(inst("v_cndmask_b32", aStr, aStr, vgpr(abReg+bk), sgpr(tmpSgpr, 2), ""))
+
+
+          for b in range(0, kernel["MIWaveTileB"]):
+            for iui in range(0, innerUnroll):
+              iuiB_new = (iui//self.numReadsIterCoalescedB)*self.numReadsIterCoalescedB
+              iuiB_new_offset = iui%self.numReadsIterCoalescedB*vgprPerInput
+              b_new = b*vgprPerInput*self.numReadsIterCoalescedB
+              bStr = vgpr("ValuB_X%u_I%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset), vgprPerInput)
+              tmpVregIdx = 0
+
+              if kernel["DirectToVgprB"]:
+                # overwrite bStr for DirectToVgprB
+                tmpVregIdx = (iui * kernel["MIWaveTileB"] + b) * vgprPerInput + vregSetIdx * numVgprPerBlockB
+                bStr  = vgpr("G2LB+%u" % (tmpVregIdx), vgprPerInput)
+
+              shiftK.addCode(inst("v_lshlrev_b%u" % (vgprPerInput*32), vgpr(abReg, vgprPerInput), sgpr(tmpSgpr+2), bStr, ""))
+
+              for bk in range(0, vgprPerInput):
+                bStr = vgpr("ValuB_X%u_I%u+%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset, bk), 1)
+                if kernel["DirectToVgprB"]:
+                  # overwrite bStr for DirectToVgprB
+                  tmp   = tmpVregIdx + bk
+                  bStr  = vgpr("G2LB+%u" % (tmp), 1)
+                shiftK.addCode(inst("v_cndmask_b32", bStr, bStr, vgpr(abReg+bk), sgpr(tmpSgpr, 2), ""))
+      else: # wmma
+        iui = 0
+
+        abReg      = self.vgprPool.checkOutAligned(2, 2, "abReg")
+        sgprShift  = self.getTmpSgpr(3).idx()
+        sgpr64bIdx = sgprShift + 1
+        sgprMask   = sgprShift + 2
+
+        shiftK.addCode(inst("s_sub_i32", sgpr(sgprShift), sgpr(loopCounterName), 1, "calculate 64bit groups index"))
+        shiftK.addCode(inst("s_lshr_b32", sgpr(sgpr64bIdx), sgpr(sgprShift), log2(64 // (numRegistersIn * 32)), "calculate 64bit groups index"))
+        shiftK.addCode(inst("s_and_b32", sgpr(sgprShift), sgpr(sgprShift), int((64 // (numRegistersIn * 32))-1), "calculate shift value"))
+        shiftK.addCode(inst("s_sub_i32", sgpr(sgprShift), int((64 // (numRegistersIn * 32))-1), sgpr(sgprShift), "calculate shift value"))
+        shiftK.addCode(inst("s_lshl_b32", sgpr(sgprShift), sgpr(sgprShift), log2(numRegistersIn * 32), "calculate shift value"))
+
+        for it in range(int((kernel["MatrixInstK"] * numRegistersIn) // 2)): # handle 64 bit per iteration
+          shiftK.addCode(inst("v_cmp_eq_i32", sgpr(sgprMask), sgpr(sgpr64bIdx), it, 'handle this 64bit group: part 1'))
+          for a in range(0, kernel["MIWaveTileA"]):
+            aStr = vgpr("ValuA_X%u_I%u+%u+%u" % (m, iui, a*vgprPerInput, it*2), 2)
+            shiftK.addCode(inst("v_lshlrev_b64", vgpr(abReg,2), sgpr(sgprShift), aStr, f"shfit for ValuA[{it*2}:{it*2+1}]"))
+            for bk in range(2):
+              aStr = vgpr("ValuA_X%u_I%u+%u+%u+%u" % (m, iui, a*vgprPerInput, it*2, bk))
+              shiftK.addCode(inst("v_cndmask_b32", aStr, aStr, vgpr(abReg+bk), sgpr(sgprMask), "shift if in this 64b group"))
+          for b in range(0, kernel["MIWaveTileB"]):
+            bStr = vgpr("ValuB_X%u_I%u+%u+%u" % (m, iui, b*vgprPerInput, it*2), 2)
+            shiftK.addCode(inst("v_lshlrev_b64", vgpr(abReg,2), sgpr(sgprShift), bStr, f"shfit for ValuB[{it*2}:{it*2+1}]"))
+            for bk in range(2):
+              bStr = vgpr("ValuB_X%u_I%u+%u+%u+%u" % (m, iui, b*vgprPerInput, it*2, bk))
+              shiftK.addCode(inst("v_cndmask_b32", bStr, bStr, vgpr(abReg+bk), sgpr(sgprMask), "shift if in this 64b group"))
+          if it > 0:
+            shiftK.addCode(inst("v_cmp_lt_i32", sgpr(sgprMask), sgpr(sgpr64bIdx), it, 'handle this 64bit group: part 2'))
+            for a in range(0, kernel["MIWaveTileA"]):
+              for bk in range(2):
+                aStr = vgpr("ValuA_X%u_I%u+%u+%u+%u" % (m, iui, a*vgprPerInput, it*2, bk))
+                shiftK.addCode(inst("v_cndmask_b32", aStr, aStr, 0, sgpr(sgprMask), "shift if in this 64b group"))
+            for b in range(0, kernel["MIWaveTileB"]):
+              for bk in range(2):
+                bStr = vgpr("ValuB_X%u_I%u+%u+%u+%u" % (m, iui, b*vgprPerInput, it*2, bk))
+                shiftK.addCode(inst("v_cndmask_b32", bStr, bStr, 0, sgpr(sgprMask), "shift if in this 64b group"))
 
       s_nop = 2
 
@@ -6375,7 +6425,7 @@ class KernelWriterAssembly(KernelWriter):
               # overwrite bStr for DirectToVgprB
               br  = vgpr("G2LB+%u+%u+%u" % (b_new, vgprBufferB_new_offset, iuiB_new_offset), numRegistersOut)
               bi  = vgpr("G2LB+%u+%u+%u+%u" % (b_new, vgprBufferB_new_offset, iuiB_new_offset, numRegistersOut), numRegistersOut)
-            v_mfma = "v_mfma_%s_%ux%ux%u%s "%(miOutTypeName, kernel["MatrixInstM"], kernel["MatrixInstN"], kernel["MatrixInstK"], miInTypeName)
+            v_mfma = "v_%s_%s_%ux%ux%u%s%s "%(instructionName, miOutTypeName, kernel["MatrixInstM"], kernel["MatrixInstN"], kernel["MatrixInstK"], instructionStep, miInTypeName)
             v_add = "v_add_" + miOutTypeName
             offsetVgpr = [0,0,0]
             forceGenerate = ccA and ccB # so far, v_add is always necessary for ccA and ccB case
@@ -6414,12 +6464,12 @@ class KernelWriterAssembly(KernelWriter):
               if v is not None: self.vgprPool.checkIn(v)
           else:
             if kernel["SourceSwap"]:
-              imod.addCode("v_mfma_%s_%ux%ux%u%s%s %s[%u+%u:%u+%u], %s, %s, %s[%u:%u]%s" \
-                          % (miOutTypeName, kernel["MatrixInstM"], kernel["MatrixInstN"], kernel["MatrixInstK"], miInTypeName,
+              imod.addCode("v_%s_%s_%ux%ux%u%s%s%s %s[%u+%u:%u+%u], %s, %s, %s[%u:%u]%s" \
+                          % (instructionName, miOutTypeName, kernel["MatrixInstM"], kernel["MatrixInstN"], kernel["MatrixInstK"], instructionStep, miInTypeName,
                               mfma_1k, accumRegType, accStart, accStoreCIdx, accEnd, accStoreCIdx, Str1, Str0, accumRegType, accStartSrc1, accEndSrc1, self.endLine))
             else:
-              imod.addCode("v_mfma_%s_%ux%ux%u%s%s %s[%u+%u:%u+%u], %s, %s, %s[%u:%u]%s" \
-                          % (miOutTypeName, kernel["MatrixInstM"], kernel["MatrixInstN"], kernel["MatrixInstK"], miInTypeName,
+              imod.addCode("v_%s_%s_%ux%ux%u%s%s%s %s[%u+%u:%u+%u], %s, %s, %s[%u:%u]%s" \
+                          % (instructionName, miOutTypeName, kernel["MatrixInstM"], kernel["MatrixInstN"], kernel["MatrixInstK"], instructionStep, miInTypeName,
                               mfma_1k, accumRegType, accStart, accStoreCIdx, accEnd, accStoreCIdx, Str0, Str1, accumRegType, accStartSrc1, accEndSrc1, self.endLine))
 
     # release register
@@ -10679,7 +10729,7 @@ class KernelWriterAssembly(KernelWriter):
         #print self.vgprPool.state()
         # Use VGPR up to next occupancy threshold:
         maxVgprs = self.getMaxRegsForOccupancy(kernel["NumThreads"], self.vgprPool.size(), \
-                                               self.getLdsSize(kernel), self.agprPool.size(), self.unifiedVgprRegs)
+                                               self.getLdsSize(kernel), self.agprPool.size(), self.doubleVgpr)
         if self.serializedStore: # get aggressive when serializedStore is on; not necessarily exclusive to this parameter
           len(elements[edgeI])
           tl = []
@@ -10714,9 +10764,9 @@ class KernelWriterAssembly(KernelWriter):
         if numVgprAvailable < minNeeded:
           gwvwOrig = gwvw
           currentOccupancy = self.getOccupancy(kernel["NumThreads"], self.getLdsSize(kernel), \
-              self.vgprPool.size(), self.agprPool.size(), self.unifiedVgprRegs)
+              self.vgprPool.size(), self.agprPool.size(), self.doubleVgpr)
           futureOccupancy = self.getOccupancy(kernel["NumThreads"], self.getLdsSize(kernel), \
-              self.vgprPool.size() - numVgprAvailable + minNeeded, self.agprPool.size(), self.unifiedVgprRegs)
+              self.vgprPool.size() - numVgprAvailable + minNeeded, self.agprPool.size(), self.doubleVgpr)
 
           if shrinkDb:
             print("currentOccupancy=%u futureOccupancy=%u VGPRs=%u numVgprAvail=%u vgprPerElem=%u" \
@@ -12273,7 +12323,7 @@ class KernelWriterAssembly(KernelWriter):
 
     if kernel["ScheduleIterAlg"] == 2 and \
         self.getOccupancy(kernel["NumThreads"], self.vgprPool.size(), \
-        self.getLdsSize(kernel), self.agprPool.size(), self.unifiedVgprRegs) < 2:
+        self.getLdsSize(kernel), self.agprPool.size(), self.doubleVgpr) < 2:
       self.overflowedResources = 6
 
     vgprPerCU = 65536

@@ -24,7 +24,7 @@ from .Common import assignParameterRequired, assignParameterWithDefault, \
                     globalParameters, \
                     print2, printExit, printWarning, \
                     validActivationFormats, validConvolutionConfig, \
-                    validMFMA, validParameters, validWeightFormats, \
+                    validMFMA, validWMMA, validParameters, validWeightFormats, \
                     validGEMMTypes, HPATypes
 from .DataType import DataType
 from .Utils import roundUpToNearestMultiple
@@ -1809,6 +1809,25 @@ class Solution(collections.abc.Mapping):
     return self.conversionKernelObjects
 
 
+  @staticmethod
+  def getMIOutputInfo(state):
+    outputVectorWidth = 4
+    RegsPerOut = 1
+
+    isa = tuple(state["ISA"])
+    if globalParameters["AsmCaps"][isa]['HasMFMA']:
+      if state["ProblemType"]["DataType"].MIOutputTypeNameAbbrev() == 'f64':
+        outputVectorWidth, RegsPerOut = 1, 2
+      else:
+        outputVectorWidth, RegsPerOut = 4, 1
+    elif globalParameters["AsmCaps"][isa]['HasWMMA']:
+      outputVectorWidth, RegsPerOut = 1, 1
+    else:
+      print("WARNING: unexpect code flow")
+
+    return outputVectorWidth, RegsPerOut
+
+
   ########################################
   # assign tile sizes
   @staticmethod
@@ -1852,8 +1871,7 @@ class Solution(collections.abc.Mapping):
       state["MatrixInstBN"]        = state["MIBlock"][5]
 
       state["LocalSplitU"]         = 1
-      state["MIOutputVectorWidth"] = 1 if (state["ProblemType"]["DataType"].MIOutputTypeNameAbbrev() == 'f64') else 4
-      state["MIRegPerOut"]         = 2 if (state["ProblemType"]["DataType"].MIOutputTypeNameAbbrev() == 'f64') else 1
+      state["MIOutputVectorWidth"], state["MIRegPerOut"] = Solution.getMIOutputInfo(state)
 
       if state["MatrixInstM"] == 4:
         state["ThreadTile0"] = state["MIWaveTile"][0] * state["MIOutputVectorWidth"]
@@ -1876,6 +1894,8 @@ class Solution(collections.abc.Mapping):
 
     if "SubGroup0" in state and "SubGroup1" in state and "LocalSplitU" in state:
       state["NumThreads"]  = state["SubGroup0"] * state["SubGroup1"] * state["LocalSplitU"]
+      if (state["NumThreads"] % state['WavefrontSize']) != 0:
+        reject(state, f"size of WorkGroup {state['NumThreads']} should be multiple of WavefrontSize {state['WavefrontSize']}")
 
     # macro tile sizes
     if "SubGroup0" in state and "ThreadTile0" in state:
@@ -2225,6 +2245,7 @@ class Solution(collections.abc.Mapping):
 
   @staticmethod
   def parameterWrapper(state):
+    isa = tuple(state["ISA"])
     if len(state["MatrixInstruction"]) == 9:
       waves = state["MatrixInstruction"][7]* state["MatrixInstruction"][8]
       state["ThreadTile"][0] = state["MatrixInstruction"][5]
@@ -2237,13 +2258,18 @@ class Solution(collections.abc.Mapping):
 
     if state["MatrixInstruction"] != [] and len(state["MatrixInstruction"]) == 4:
       state["MFMA_BF16_1K"] = False
-      if not (state["ProblemType"]["DataType"].toChar() in validMFMA and \
-        state["MatrixInstruction"] in validMFMA[state["ProblemType"]["DataType"].toChar()]):
-        if state["ProblemType"]["DataType"].isBFloat16() and \
-          state["MatrixInstruction"] in validMFMA["B1k"]:
-          state["MFMA_BF16_1K"] = True
-        else:
+      if globalParameters["AsmCaps"][isa]["HasMFMA"]:
+        if not (state["ProblemType"]["DataType"].toChar() in validMFMA and \
+          state["MatrixInstruction"] in validMFMA[state["ProblemType"]["DataType"].toChar()]):
+          if state["ProblemType"]["DataType"].isBFloat16() and \
+            state["MatrixInstruction"] in validMFMA["B1k"]:
+            state["MFMA_BF16_1K"] = True
+          else:
+            reject(state, "MatrixInstruction %s not valid for DataType %s" % (state["MatrixInstruction"], state["ProblemType"]["DataType"]))
+      elif globalParameters["AsmCaps"][isa]["HasWMMA"]:
+        if state["MatrixInstruction"] not in validWMMA:
           reject(state, "MatrixInstruction %s not valid for DataType %s" % (state["MatrixInstruction"], state["ProblemType"]["DataType"]))
+
       if (state["ThreadTile"][1] % state["MatrixInstruction"][0]) != 0:
         reject(state, "invalid ThreadTile1 %u for MatrixInstM %u" % (state["ThreadTile"][1], state["MatrixInstruction"][0]))
 
@@ -2276,7 +2302,10 @@ class Solution(collections.abc.Mapping):
       state['MIWaveTile'][1]   = state["ThreadTile"][1] // state["MatrixInstruction"][1]
 
       # set MIInputPerThread
-      state['MIInputPerThread'] = state["MatrixInstruction"][0] * state["MatrixInstruction"][2] * state["MatrixInstruction"][3] // 64
+      isa = tuple(state["ISA"])
+      state['MIInputPerThread'] = state["MatrixInstruction"][0] * state["MatrixInstruction"][2] * state["MatrixInstruction"][3] // state["WavefrontSize"]
+      if (not globalParameters["AsmCaps"][isa]['HasMFMA']) and globalParameters["AsmCaps"][isa]['HasWMMA']:
+        state['MIInputPerThread'] *= 2
 
     else:
       state["EnableMatrixInstruction"] = False
@@ -2560,6 +2589,8 @@ class Solution(collections.abc.Mapping):
       reject(state, "WavefrontSize=32 not yet supported for source kernels.")
 
     if state["EnableMatrixInstruction"]:
+      if not (globalParameters["AsmCaps"][isa]["HasMFMA"] or globalParameters["AsmCaps"][isa]["HasWMMA"]):
+        reject(state, f"isa {isa} doesn't support matrix instruction")
       if not (state["ProblemType"]["DataType"].isSingle() \
               or state["ProblemType"]["DataType"].isDouble() \
               or state["ProblemType"]["DataType"].isBFloat16() \
@@ -3386,8 +3417,9 @@ class Solution(collections.abc.Mapping):
     # set pad as readRegs to avoid unaligned read
     optPad = state["LocalReadVectorWidth"]
     readRegs = state["LocalReadVectorWidth"]*state["ProblemType"]["DataType"].numBytes()//4
-    if readRegs > 4:
+    if (not globalParameters["AsmCaps"][isa]['HasWMMA']) and readRegs > 4:
       reject(state, "LocalReadVectorWidth=%u results in attemping to read LDS larger than b128, reject")
+
     if state["EnableMatrixInstruction"]:
       # for readRegs = 1 or 4, we need to double pad for MI16x16xNx1 to avoid bank conflict.
       if state["MatrixInstB"] == 1 and state["MatrixInstM"] == 16 and \
@@ -3548,12 +3580,14 @@ class Solution(collections.abc.Mapping):
          state["ProblemType"]["DataType"].isDouble():
       state["LdsInitCVgprs"] = True
 
-    if state["MIArchVgpr"]:
-      if not globalParameters["ArchCaps"][isa]["HasAccCD"] or \
-         not state["EnableMatrixInstruction"]:
-        reject(state, "MIArchVgpr requires gcn support ACC_CD bit for MatrixInstruction")
-        return
+    # force MIArchVgpr when using WMMA
+    if state["EnableMatrixInstruction"] and globalParameters["AsmCaps"][isa]["HasWMMA"]:
+      state["MIArchVgpr"] = True
 
+    if state["MIArchVgpr"]:
+      if not state["EnableMatrixInstruction"]:
+        reject(state, "MIArchVgpr only support for MatrixInstruction")
+        return
       if not (state["ProblemType"]["ComputeDataType"].isDouble() or \
               state["ProblemType"]["ComputeDataType"].isSingle() or \
               (state["ProblemType"]["ComputeDataType"].isHalf() and state["ProblemType"]["HighPrecisionAccumulate"]) or \

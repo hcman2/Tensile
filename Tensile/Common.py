@@ -283,7 +283,7 @@ def getArchitectureName(gfxName):
 # Enumerate Valid Solution Parameters
 ################################################################################
 validWorkGroups = []
-for numThreads in range(64, 1025, 64):
+for numThreads in range(32, 1025, 32):
   for nsg in [ 1, 2, 4, 8, 16, 32, 64, 96, 128, 256 ]:
     for sg0 in range(1, numThreads//nsg+1):
       sg1 = numThreads//nsg//sg0
@@ -318,10 +318,11 @@ validMFMA["B1k"] = [[32,32,4,2], [32,32,8,1], [16,16,4,4], [16,16,16,1], [4,4,4,
 validMFMA["C"] = validMFMA["S"]
 validMFMA["Z"] = validMFMA["D"]
 validMFMA["I8"] = [[32,32,4,2], [32,32,8,1], [16,16,4,4], [16,16,16,1], [4,4,4,16]]
+validWMMA = [[16,16,16,1], ]
 validTT = 16
 validMFMA["_format9"] = []
 
-for MFMA in [validMFMA["H"], validMFMA["S"], validMFMA["B"], validMFMA["D"]]:
+for MFMA in [validMFMA["H"], validMFMA["S"], validMFMA["B"], validMFMA["I8"], validMFMA["D"], validWMMA]:
   for MI in MFMA:
     for bm in range(int(math.log(MI[3],2))+1):
       for tt0 in range(1,validTT+1):
@@ -1679,6 +1680,7 @@ def GetAsmCaps(isaVersion):
   rv["HasSMulHi"]         = tryAssembler(isaVersion, "s_mul_hi_u32 s47, s36, s34")
   rv["HasCodeObjectV3"]   = tryAssembler(isaVersion, "", False, "-mcode-object-version=2")
 
+  rv["HasWMMA"]           = tryAssembler(isaVersion, "v_wmma_f32_16x16x16_f16 v[0:7], v[8:15], v[16:23], v[0:7]")
   rv["HasMFMA"]           = tryAssembler(isaVersion, "v_mfma_f32_32x32x2bf16 a[0:31], v32, v33, a[0:31]")
   rv["HasMFMA_f64"]       = tryAssembler(isaVersion, "v_mfma_f64_16x16x4f64 v[0:7], v[32:33], v[36:37], v[0:7]")
   rv["HasMFMA_bf16_1k"]   = tryAssembler(isaVersion, "v_mfma_f32_32x32x4bf16_1k a[0:31], v[32:33], v[36:37], a[0:31]")
