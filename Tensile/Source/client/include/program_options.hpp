@@ -468,8 +468,6 @@ namespace roc
                             spliter = ",;";
                         roc::split(values, in, spliter);
                         size_t tuples = values.size();
-                        if(inopt == "--a-zero-pads" || inopt == "--b-zero-pads")
-                            tuples = 4;
                         auto vals = ptr->get_value();
                         for(auto v : values)
                         {
@@ -746,8 +744,6 @@ namespace roc
                             spliter = ",;";
                         roc::split(values, in, spliter);
                         size_t tuples = values.size();
-                        if(inopt == "--a-zero-pads" || inopt == "--b-zero-pads")
-                            tuples = 4;
                         auto vals = ptr->get_value();
                         for(auto v : values)
                         {
