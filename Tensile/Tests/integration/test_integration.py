@@ -1,4 +1,4 @@
-import os, subprocess, shlex, shutil, random, pytest
+import os, subprocess, shutil, random, pytest
 from filelock import FileLock
 from Tensile import ClientWriter, LibraryIO, Common
 from Tensile.SolutionStructs import ProblemType, ProblemSizesMock
@@ -124,7 +124,7 @@ def test_integration(useGlobalParameters, builddir, getLogicFileDir,
     Common.ensurePath(outputDir)
 
     createLibraryScript = ClientWriter.getBuildClientLibraryScript(outputDir, logicFileDir)
-    subprocess.run(shlex.split(createLibraryScript), cwd=outputDir, check=True)
+    subprocess.run(createLibraryScript, cwd=outputDir, check=True)
 
     coList = []
     libList = []
