@@ -54,9 +54,6 @@
 
 #include <cstddef>
 
-#define DEBUG 1
-#define DEBUG_LOG(__VA_ARGS__) if (DEBUG) printf(__VA_ARGS__)
-
 namespace pomain = roc;
 
 namespace Tensile
@@ -428,13 +425,14 @@ namespace Tensile
                 else
                 {
                     throw std::runtime_error(
-                        concatenate("Can't convert ", strValue, " to BoundsCheckMode."));
+                        concatenate("Can't convert ", opt, " to BoundsCheckMode."));
                 }
                 args.at(opt).set(mode);
             }
             else
             {
-                DEBUG_LOG("ERROR: unconfigable option \n");
+                throw std::runtime_error(
+                        concatenate("Can't config ", strValue, " option."));
             }
         }
         
@@ -458,13 +456,10 @@ namespace Tensile
 
         pomain::variables_map parse_args(int argc, const char* argv[])
         {
-            DEBUG_LOG("parse_args start\n");
             auto options = all_options();
-            DEBUG_LOG("parse_command_line start\n");
             pomain::variables_map args;
             pomain::store(pomain::parse_command_line(argc, argv, options), args);
             pomain::notify(args);
-            DEBUG_LOG("parse_command_line done\n");
             if(args.count("help"))
             {
                 std::cout << options << std::endl;
@@ -474,7 +469,6 @@ namespace Tensile
             std::unordered_map<std::string,std::string> unconfig;
             if(args.count("config-file"))
             {
-                DEBUG_LOG("parse_config_file start\n");
                 auto configFiles = args["config-file"].as<std::vector<std::string>>();
                 for(auto filename : configFiles)
                 {
@@ -484,7 +478,6 @@ namespace Tensile
                         throw std::runtime_error(concatenate("Could not open ", filename));
                     pomain::store(pomain::parse_config_file(file, options), args, &unconfig);
                 }
-                DEBUG_LOG("parse_config_file done\n");
             }
             
             if(!unconfig.empty())
@@ -499,18 +492,6 @@ namespace Tensile
             }
             
             fix_data_types(args);
-            DEBUG_LOG("fix_data_types done\n");
-            //parse_arg_ints(args, "problem-size");
-            //parse_arg_ints(args, "a-strides");
-            //parse_arg_ints(args, "b-strides");
-            //parse_arg_ints(args, "c-strides");
-            //parse_arg_ints(args, "d-strides");
-            //parse_arg_ints(args, "a-zero-pads");
-            //parse_arg_ints(args, "b-zero-pads");
-            DEBUG_LOG("parse_arg_ints done\n");
-
-            //if(args["convolution-vs-contraction"].as<bool>())
-            //    parse_arg_ints(args, "convolution-problem");
 
             return args;
         }
@@ -572,19 +553,17 @@ int main(int argc, const char* argv[])
 {
     using namespace Tensile;
     using namespace Tensile::Client;
-    DEBUG_LOG("start\n");
     auto args = parse_args(argc, argv);
-    DEBUG_LOG("parse_args done\n");
     ClientProblemFactory problemFactory(args);
     
     auto        hardware = GetHardware(args);
     hipStream_t stream   = GetStream(args);
-    DEBUG_LOG("GetHardware/GetStream done\n");
+
     auto                          library = LoadSolutionLibrary(args);
-    DEBUG_LOG("LoadSolutionLibrary done\n");
+
     Tensile::hip::SolutionAdapter adapter;
     LoadCodeObjects(args, adapter);
-    DEBUG_LOG("LoadCodeObjects done\n");
+
     auto problems        = problemFactory.problems();
     int  firstProblemIdx = args["problem-start-idx"].as<int>();
     int  numProblems     = args["num-problems"].as<int>();
@@ -613,15 +592,13 @@ int main(int argc, const char* argv[])
     maxWorkspaceSize = std::min(maxWorkspaceSize, maxWorkspaceSizeLimit);
 
     auto dataInit = DataInitialization::Get(args, problemFactory, maxWorkspaceSize);
-    DEBUG_LOG("DataInitialization::Get done\n");
     auto solutionIterator = SolutionIterator::Default(library, hardware, args);
-    DEBUG_LOG("SolutionIterator::Default done\n");
     MetaRunListener listeners;
 
     listeners.addListener(dataInit);
     listeners.addListener(solutionIterator);
     listeners.addListener(std::make_shared<ProgressListener>(args));
-    DEBUG_LOG("addListener done\n");
+
     if(runKernels)
     {
         listeners.addListener(std::make_shared<ReferenceValidator>(args, dataInit));
@@ -637,7 +614,7 @@ int main(int argc, const char* argv[])
     reporters->addReporter(LogReporter::Default(args));
     reporters->addReporter(ResultFileReporter::Default(args));
     reporters->addReporter(LibraryUpdateReporter::Default(args));
-    DEBUG_LOG("addReporter done\n");
+
     if(args.count("log-file"))
     {
         std::string filename = args["log-file"].as<std::string>();
@@ -648,7 +625,7 @@ int main(int argc, const char* argv[])
     }
 
     listeners.setReporter(reporters);
-    DEBUG_LOG("setReporter done");
+
     // ReferenceValidator validator(args, dataInit);
     // BenchmarkTimer timer(args);
 
@@ -764,7 +741,6 @@ int main(int argc, const char* argv[])
     }
 
     listeners.finalizeReport();
-    DEBUG_LOG("finalizeReport done");
     // error range in shell is [0-255]
     return std::min(listeners.error(), 255);
 }
