@@ -336,20 +336,6 @@ namespace Tensile
             return rv;
         }
 
-        //void parse_arg_ints(pomain::variables_map& args, std::string const& name)
-        //{
-        //    auto inValue = args[name].as<std::vector<std::string>>();
-        //
-        //    std::vector<std::vector<size_t>> outValue;
-        //    outValue.reserve(inValue.size());
-        //    std::cout<<"size="<<inValue.size()<<std::endl;
-        //    
-        //    for(auto const& str : inValue)
-        //        outValue.push_back(split_ints(str));
-        //    
-        //    args.at(name).set(outValue);
-        //}
-        
         void parse_unconfig_arg(pomain::variables_map& args, std::string opt, std::string strValue)
         {
             if(opt.compare(0, 5, "init-") == 0)
