@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright 2019-2020 Advanced Micro Devices, Inc.
+ * Copyright 2019-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -228,7 +228,7 @@ namespace Tensile
 
         template <typename TypedInputs>
         std::shared_ptr<TypedDataInitialization<TypedInputs>>
-            DataInitialization::GetTyped(po::variables_map&    args,
+            DataInitialization::GetTyped(po::variables_map&          args,
                                          ClientProblemFactory const& problemFactory,
                                          size_t                      maxWorkspaceSize)
         {
@@ -239,7 +239,7 @@ namespace Tensile
         }
 
         std::shared_ptr<DataInitialization>
-            DataInitialization::Get(po::variables_map&    args,
+            DataInitialization::Get(po::variables_map&          args,
                                     ClientProblemFactory const& problemFactory,
                                     size_t                      maxWorkspaceSize)
         {

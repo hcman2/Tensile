@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright 2019-2021 Advanced Micro Devices, Inc.
+ * Copyright 2019-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,8 +32,7 @@ namespace Tensile
 {
     namespace Client
     {
-        std::shared_ptr<ResultFileReporter>
-            ResultFileReporter::Default(po::variables_map& args)
+        std::shared_ptr<ResultFileReporter> ResultFileReporter::Default(po::variables_map& args)
         {
             return std::make_shared<ResultFileReporter>(
                 args["results-file"].as<std::string>(),

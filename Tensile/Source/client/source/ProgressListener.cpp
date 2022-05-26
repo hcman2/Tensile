@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright 2019-2020 Advanced Micro Devices, Inc.
+ * Copyright 2019-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,10 @@
 #include <ProgressListener.hpp>
 
 #include <cstddef>
-#include <iostream>
-#include <iomanip>
-#include <sstream>
 #include <ctime>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
 
 namespace Tensile
 {
@@ -144,7 +144,7 @@ namespace Tensile
                                                 TimingEvents const&                stopEvents)
         {
             std::time_t result = std::time(nullptr);
-            std::tm* tm = std::localtime(&result);
+            std::tm*    tm     = std::localtime(&result);
 
             std::ostringstream msg;
             msg.fill('0');

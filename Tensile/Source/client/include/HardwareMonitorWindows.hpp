@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright 2019-2020 Advanced Micro Devices, Inc.
+ * Copyright 2019-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -52,26 +52,34 @@ namespace Tensile
         class HardwareMonitor
         {
         public:
-
             /** Translates the Hip device index into the corresponding device index for
    * ROCm-SMI. */
             using clock = std::chrono::steady_clock;
 
             // Monitor at the maximum possible rate.
-            HardwareMonitor(int hipDeviceIndex) {};
+            HardwareMonitor(int hipDeviceIndex){};
             // Limit collection to once per minPeriod.
-            HardwareMonitor(int hipDeviceIndex, clock::duration minPeriod) {};
+            HardwareMonitor(int hipDeviceIndex, clock::duration minPeriod){};
 
-            ~HardwareMonitor() {};
+            ~HardwareMonitor(){};
 
-            void addTempMonitor() {};
-            void addClockMonitor(ClockType clockType) {};
-            void addFanSpeedMonitor(uint32_t sensorIndex = 0) {};
+            void addTempMonitor(){};
+            void addClockMonitor(ClockType clockType){};
+            void addFanSpeedMonitor(uint32_t sensorIndex = 0){};
 
-            double getAverageTemp() { return 0.0; };
-            double getAverageClock(ClockType clockType) { return 0.0; };
-            double getAverageFanSpeed(uint32_t sensorIndex = 0) { return 0.0; };
-            int    getDeviceIndex()
+            double getAverageTemp()
+            {
+                return 0.0;
+            };
+            double getAverageClock(ClockType clockType)
+            {
+                return 0.0;
+            };
+            double getAverageFanSpeed(uint32_t sensorIndex = 0)
+            {
+                return 0.0;
+            };
+            int getDeviceIndex()
             {
                 return 0;
             }
@@ -81,21 +89,21 @@ namespace Tensile
             }
 
             /// Begins monitoring until stop() is called.
-            void start() {};
+            void start(){};
 
             /// Sends a signal to the monitoring thread to end monitoring.
-            void stop() {};
+            void stop(){};
 
             /// Begins monitoring immediately, until the event has occurred.
-            void runUntilEvent(hipEvent_t event) {};
+            void runUntilEvent(hipEvent_t event){};
 
             /// Monitoring will occur from startEvent until stopEvent.
-            void runBetweenEvents(hipEvent_t startEvent, hipEvent_t stopEvent) {};
+            void runBetweenEvents(hipEvent_t startEvent, hipEvent_t stopEvent){};
 
             /// Waits until monitoring has finished.
             /// Throws an exception if monitoring was started without a stop event
             /// and stop() has not been called.
-            void wait() {};
+            void wait(){};
         };
     } // namespace Client
 } // namespace Tensile

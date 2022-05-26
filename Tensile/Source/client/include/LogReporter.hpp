@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright 2019-2021 Advanced Micro Devices, Inc.
+ * Copyright 2019-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -85,9 +85,8 @@ namespace Tensile
             }
 
             template <typename Stream>
-            static std::shared_ptr<LogReporter> Default(po::variables_map& args,
-                                                        Stream&                  stream,
-                                                        LogLevel level = LogLevel::Count)
+            static std::shared_ptr<LogReporter>
+                Default(po::variables_map& args, Stream& stream, LogLevel level = LogLevel::Count)
             {
                 bool dumpTensors = args["dump-tensors"].as<bool>();
                 using namespace ResultKey;

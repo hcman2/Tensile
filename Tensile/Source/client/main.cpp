@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright 2019-2021 Advanced Micro Devices, Inc.
+ * Copyright 2019-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -102,7 +102,7 @@ namespace Tensile
                 ("free",                     pomain::value<ContractionProblem::FreeIndices>()->default_value(ContractionProblem::FreeIndices(0)),  "Free index. Order: a,b,ca,cb,da,db")
                 ("batch",                    pomain::value<ContractionProblem::BatchIndices>()->default_value(ContractionProblem::BatchIndices(0)), "Batch index. Order: a,b,c,d")
                 ("bound",                    pomain::value<ContractionProblem::BoundIndices>()->default_value(ContractionProblem::BoundIndices(0)), "Bound/summation index. Order: a,b")
-                
+
                 ("type",                     pomain::value<DataType>()->default_value(DataType::None), "Data type")
                 ("a-type",                   pomain::value<DataType>()->default_value(DataType::None), "A data type")
                 ("b-type",                   pomain::value<DataType>()->default_value(DataType::None), "B data type")
@@ -309,7 +309,7 @@ namespace Tensile
                     if(logLevel >= LogLevel::Verbose)
                         std::cout << "Loading " << filename << std::endl;
                     ret = adapter.loadCodeObjectFile(filename);
-                
+
                     if(ret == hipSuccess)
                         loaded = true;
                     else
@@ -382,7 +382,7 @@ namespace Tensile
                 else if(strValue == ToString(InitMode::DenormMin))
                     mode = InitMode::DenormMin;
                 else if(strValue == ToString(InitMode::DenormMax))
-                    mode = InitMode::DenormMax; 
+                    mode = InitMode::DenormMax;
                 auto type = args[opt].as<InitMode>();
                 args.at(opt).set(mode);
             }
@@ -417,11 +417,10 @@ namespace Tensile
             }
             else
             {
-                throw std::runtime_error(
-                        concatenate("Can't config ", strValue, " option."));
+                throw std::runtime_error(concatenate("Can't config ", strValue, " option."));
             }
         }
-        
+
         void fix_data_types(pomain::variables_map& args)
         {
             auto type = args["type"].as<DataType>();
@@ -442,7 +441,7 @@ namespace Tensile
 
         pomain::variables_map parse_args(int argc, const char* argv[])
         {
-            auto options = all_options();
+            auto                  options = all_options();
             pomain::variables_map args;
             pomain::store(pomain::parse_command_line(argc, argv, options), args);
             pomain::notify(args);
@@ -452,7 +451,7 @@ namespace Tensile
                 exit(1);
             }
 
-            std::unordered_map<std::string,std::string> unconfig;
+            std::unordered_map<std::string, std::string> unconfig;
             if(args.count("config-file"))
             {
                 auto configFiles = args["config-file"].as<std::vector<std::string>>();
@@ -465,18 +464,17 @@ namespace Tensile
                     pomain::store(pomain::parse_config_file(file, options), args, &unconfig);
                 }
             }
-            
+
             if(!unconfig.empty())
             {
-                for( auto iter = unconfig.begin(); iter != unconfig.end(); iter++)
+                for(auto iter = unconfig.begin(); iter != unconfig.end(); iter++)
                 {
                     std::string opt = iter->first;
                     std::string val = iter->second;
                     parse_unconfig_arg(args, opt, val);
-
                 }
             }
-            
+
             fix_data_types(args);
 
             return args;
@@ -539,13 +537,13 @@ int main(int argc, const char* argv[])
 {
     using namespace Tensile;
     using namespace Tensile::Client;
-    auto args = parse_args(argc, argv);
+    auto                 args = parse_args(argc, argv);
     ClientProblemFactory problemFactory(args);
-    
+
     auto        hardware = GetHardware(args);
     hipStream_t stream   = GetStream(args);
 
-    auto                          library = LoadSolutionLibrary(args);
+    auto library = LoadSolutionLibrary(args);
 
     Tensile::hip::SolutionAdapter adapter;
     LoadCodeObjects(args, adapter);
@@ -577,8 +575,8 @@ int main(int argc, const char* argv[])
         = getMaxWorkspace(library, hardware, args, problems, firstProblemIdx, lastProblemIdx);
     maxWorkspaceSize = std::min(maxWorkspaceSize, maxWorkspaceSizeLimit);
 
-    auto dataInit = DataInitialization::Get(args, problemFactory, maxWorkspaceSize);
-    auto solutionIterator = SolutionIterator::Default(library, hardware, args);
+    auto            dataInit = DataInitialization::Get(args, problemFactory, maxWorkspaceSize);
+    auto            solutionIterator = SolutionIterator::Default(library, hardware, args);
     MetaRunListener listeners;
 
     listeners.addListener(dataInit);

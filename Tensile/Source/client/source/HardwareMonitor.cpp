@@ -59,22 +59,22 @@ namespace Tensile
     {
         rsmi_clk_type_t toSMIClockType(ClockType type)
         {
-            switch (type)
+            switch(type)
             {
-                case CLK_TYPE_SYS:
-                    return RSMI_CLK_TYPE_SYS;
-                case CLK_TYPE_DF:
-                    return RSMI_CLK_TYPE_DF;
-                case CLK_TYPE_DCEF:
-                    return RSMI_CLK_TYPE_DCEF;
-                case CLK_TYPE_SOC:
-                    return RSMI_CLK_TYPE_SOC;
-                case CLK_TYPE_MEM:
-                    return RSMI_CLK_TYPE_MEM;
-                case CLK_INVALID:
-                    return RSMI_CLK_INVALID;
-                default:
-                    return RSMI_CLK_TYPE_SYS;
+            case CLK_TYPE_SYS:
+                return RSMI_CLK_TYPE_SYS;
+            case CLK_TYPE_DF:
+                return RSMI_CLK_TYPE_DF;
+            case CLK_TYPE_DCEF:
+                return RSMI_CLK_TYPE_DCEF;
+            case CLK_TYPE_SOC:
+                return RSMI_CLK_TYPE_SOC;
+            case CLK_TYPE_MEM:
+                return RSMI_CLK_TYPE_MEM;
+            case CLK_INVALID:
+                return RSMI_CLK_INVALID;
+            default:
+                return RSMI_CLK_TYPE_SYS;
             }
             return RSMI_CLK_TYPE_SYS;
         }
@@ -184,8 +184,8 @@ namespace Tensile
 
         void HardwareMonitor::addTempMonitor()
         {
-            rsmi_temperature_type_t sensorType = RSMI_TEMP_TYPE_EDGE;
-            rsmi_temperature_metric_t metric = RSMI_TEMP_CURRENT;
+            rsmi_temperature_type_t   sensorType = RSMI_TEMP_TYPE_EDGE;
+            rsmi_temperature_metric_t metric     = RSMI_TEMP_CURRENT;
 
             assertNotActive();
 
@@ -211,8 +211,8 @@ namespace Tensile
 
         double HardwareMonitor::getAverageTemp()
         {
-            rsmi_temperature_type_t sensorType = RSMI_TEMP_TYPE_EDGE;
-            rsmi_temperature_metric_t metric = RSMI_TEMP_CURRENT;
+            rsmi_temperature_type_t   sensorType = RSMI_TEMP_TYPE_EDGE;
+            rsmi_temperature_metric_t metric     = RSMI_TEMP_CURRENT;
 
             assertNotActive();
 

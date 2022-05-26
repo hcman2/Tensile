@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright 2019-2020 Advanced Micro Devices, Inc.
+ * Copyright 2019-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -53,7 +53,6 @@ namespace Tensile
         class HardwareMonitor
         {
         public:
-
             /** Translates the Hip device index into the corresponding device index for
    * ROCm-SMI. */
 
@@ -101,7 +100,7 @@ namespace Tensile
 
         private:
             static uint32_t GetROCmSMIIndex(int hipDeviceIndex);
-            static void InitROCmSMI();
+            static void     InitROCmSMI();
 
             void assertActive();
             void assertNotActive();

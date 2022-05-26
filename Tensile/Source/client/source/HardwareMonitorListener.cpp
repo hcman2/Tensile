@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright 2019-2020 Advanced Micro Devices, Inc.
+ * Copyright 2019-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -93,12 +93,9 @@ namespace Tensile
             m_reporter->report(ResultKey::DeviceIndex, m_monitor->getDeviceIndex());
             m_reporter->report(ResultKey::TempEdge, m_monitor->getAverageTemp());
 
-            m_reporter->report(ResultKey::ClockRateSys,
-                               m_monitor->getAverageClock(CLK_TYPE_SYS));
-            m_reporter->report(ResultKey::ClockRateSOC,
-                               m_monitor->getAverageClock(CLK_TYPE_SOC));
-            m_reporter->report(ResultKey::ClockRateMem,
-                               m_monitor->getAverageClock(CLK_TYPE_MEM));
+            m_reporter->report(ResultKey::ClockRateSys, m_monitor->getAverageClock(CLK_TYPE_SYS));
+            m_reporter->report(ResultKey::ClockRateSOC, m_monitor->getAverageClock(CLK_TYPE_SOC));
+            m_reporter->report(ResultKey::ClockRateMem, m_monitor->getAverageClock(CLK_TYPE_MEM));
 
             m_reporter->report(ResultKey::FanSpeedRPMs, m_monitor->getAverageFanSpeed());
             m_reporter->report(ResultKey::HardwareSampleCount, m_monitor->getSamples());
